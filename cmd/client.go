@@ -17,18 +17,18 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
 // clientCmd represents the client command
 var clientCmd = &cobra.Command{
 	Use:   "client",
-	Short: "Client to connect to the Phev",
-	Long:  ` `,
+	Short: "Client to connect and interact with the vehicle",
+	Long: `
+Client functionality for connecting and interacting with
+the vehicle. Please see subcommands for available functions.
+Requires Wifi reachability to the vehicle.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Please choose a sub-command.")
 		cmd.Help()
 	},
 }

@@ -1,11 +1,11 @@
-# phev2mqtt
+# phev2mqtt - Mitsubishi Outlander PHEV to MQTT gateway
 
-Library and utility to interact with a Mitsubishi Outlander PHEV via the Wifi
-remote control protocol.
+Utility to interact with a Mitsubishi Outlander PHEV via the Wifi remote
+control protocol.
 
 Inspired by https://github.com/phev-remote/ but written entirely in Go.
 
-For further information, read the [protocol documentation](protocol/README.md).
+For further hacking, read the [protocol documentation](protocol/README.md).
 
 Tested against a MY18 vehicle.
 
@@ -38,8 +38,9 @@ Contributions and PRs are welcome.
 #### Install Go
 
  * Download and install the latest [Go compiler](https://golang.org/dl/)
-   * Your distro packager may have an old version
+   * Your distro packager may have a version thats too old
    * For raspbian choose the ARMv6 release
+
 #### Install PCAP dev libraries
 
  * Ensure you have install the libpcap-dev package
@@ -48,7 +49,7 @@ Contributions and PRs are welcome.
 
  * Download the phev2mqtt archive
  * Extract it
- * Go into its the top level directory run *go build*
+ * Go into its the top level directory and run *go build*
  * Verify it runs with *./phev2mqtt -h*
 
 ### Connecting to the vehicle.
@@ -63,8 +64,8 @@ search for the car SSID and find the MAC address used. On Android this will like
 be a randomised address. Note this address down.
 
 On your computer running the phev2mqtt tools, configure a new Wifi connection to the
-car's SSID, and it's also essential to set the Wifi mac address to the client MAC address
-you noted above. Poke around online for how to do this for your system.
+car's SSID, and it's also essential to set the Wifi adapter mac address to the client
+MAC address you noted above. Poke around online for how to do this for your system.
 
 Once connected to the car, you can sniff for messages by running *phev2mqtt client watch*.
 The phone client needs to be disconnected for this to work.
@@ -81,24 +82,28 @@ Start the MQTT gateway with:
 
 `./phev2mqtt client mqtt --mqtt_server tcp://<your_mqtt_address:1883/ [--mqtt_username <mqtt_username>] [--mqtt_password <mqtt_password>]`
 
-Topics are as follows:
+The following topics are published:
 
-| Topic/prefix | Direction | Description |
-|---|---|---|
-| phev/register/[register] | Out | Raw values of each register, as hex strings |
-| phev/available | Out | Wifi connection status to car. *online* or *offline* |
-| phev/battery/level | Out | Current drive battery level as a percent |
-| phev/ac/status | Out | Whether the car AC is on |
-| phev/ac/mode | Out | Mode of the AC, if on. *cool*, *heat*, *windscreen* |
-| phev/charge/charging | Out | Whether the battery is charging. *on* or *off* |
-| phev/charge/remaining | Out | Minutes left, if charging. |
-| phev/door/locked | Out | Whether the car is locked. *on* or *off* |
-| phev/vim | Out | Discovered VIN of the car |
-| phev/registrations | Out | Number of wifi clients registered to the car |
-| phev/set/register/[register] | In | Set register 0x[register] to value 0x[payload] |
-| phev/set/parkinglights | In | Set parking lights *on* or *off* |
-| phev/set/headlights | In | Set head lights *on* or *off* |
-| phev/set/cancelchargetimer | In | Cancel charge timer (any payload) |
+| Topic/prefix | Description |
+|---|---|
+| phev/register/[register] | Raw values of each register, as hex strings |
+| phev/available | Wifi connection status to car. *online* or *offline* |
+| phev/battery/level | Current drive battery level as a percent |
+| phev/ac/status | Whether the car AC is on |
+| phev/ac/mode | Mode of the AC, if on. *cool*, *heat*, *windscreen* |
+| phev/charge/charging | Whether the battery is charging. *on* or *off* |
+| phev/charge/remaining | Minutes left, if charging. |
+| phev/door/locked | Whether the car is locked. *on* or *off* |
+| phev/vin | Discovered VIN of the car |
+| phev/registrations | Number of wifi clients registered to the car |
+
+The following topics are subscribed to and can be used to change state on the car:
+
+| phev/set/register/[register] | Set register 0x[register] to value 0x[payload] |
+| phev/set/parkinglights | Set parking lights *on* or *off* |
+| phev/set/headlights | Set head lights *on* or *off* |
+| phev/set/cancelchargetimer | Cancel charge timer (any payload) |
+| phev/set/climate/[mode] | Set ac/climate state (cool/heat/windscreen/off) for [payload] (10/20/30) |
 
 
 ### Sniffing the official client

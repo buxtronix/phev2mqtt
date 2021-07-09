@@ -192,6 +192,8 @@ XOR values.
 
 Registers contain the bulk of information on the state of the vehicle.
 
+### Read registers (car to client)
+
 | Register | Name | Description |
 |--|--|--|
 |0x1 | ?? |  |
@@ -217,11 +219,11 @@ Registers contain the bulk of information on the state of the vehicle.
 |0x1b | ?? |  |
 |0x1c | AirCon Mode |  |
 |0x1d | Battery Level |  |
-|0x1e | ?? |  |
+|0x1e | Charge plug status |  |
 |0x1f | Charge State |  |
 |0x21 | ?? |  |
 |0x22 | ?? |  |
-|0x23 | ?? |  |
+|0x23 | ?? | Maybe AC related  |
 |0x24 | Door Lock Status |  |
 |0x25 | ?? |  |
 |0x26 | ?? |  |
@@ -247,6 +249,8 @@ Registers contain the bulk of information on the state of the vehicle.
 | 1 | AC operating [0=off 1=on] |
 | 2 | Unknown |
 
+02b00b = windscreen on/10min
+
 ### 0x12 - Car time sync
 
 ### 0x15 - Vin / registration state
@@ -269,8 +273,8 @@ Single byte.
 | Value | Description |
 |--|--|
 |0 | Unknown |
-|1 | Heating |
-|2 | Cooling |
+|1 | Cooling |
+|2 | Heating |
 |3 | Windscreen |
 
 ### 0x1d - Drive battery level
@@ -284,6 +288,10 @@ Single byte.
 |0 | Drive battery level % |
 | 1-3 | Unknown |
 
+### 0x1e - Charge plug status
+
+0000 - Unplugged
+0001 - Plugged in
 
 ### 0x1f - Charging status
 
@@ -291,6 +299,15 @@ Single byte.
 |--|--|
 |0 | Charge status [0=not charging 1=charging]|
 | 1-2 | Charge time remaining |
+
+### 0x23 - Something AC?
+
+AC timer sniff:
+
+| Mode | Start | End | Register |
+|---|---|---|---|
+| heat | 0 | 10 | 0001000202 |
+| windscreen | 0 | 10 |  0101000202  |
 
 ### 0x24 - Door / Lock status
 
@@ -322,4 +339,163 @@ the value is 1 if open, else 0.
 ### 0xc0 - ECU Version string
 
 A string with the software version of the ECU.
+
+### Write registers (client to car)
+
+| Register | Name | Description/values |
+|--|--|--|
+|0x6 | Request udpated state | 0x3 |
+|0xa | Set head lights | 0x1=on 0x2=off |
+|0xb | Set parking lights | 0x1=on 0x2=off |
+|0xe | Save settings?? | Sent after 0xf command |
+|0xf | Update settings | See below |
+|0x1b | Set climate state |  |
+|0x17 | Cancel charge timer |  |
+|0x19 | Set charge timer schedule |  |
+|0x1a | Set climate timer schedule |  |
+
+#### 0x1b - set climate state
+
+[02<state><duration><start>]
+
+* Byte 0 - 02
+* Byte 1 - climate state
+  * 01 - cooling
+  * 02 - heating
+  * 03 - windscreen
+* Byte 2 - Duration
+  * 00 - 10 mins
+  * 01 - 20 mins
+  * 02 - 30 mins
+* Byte 3 - Delay before start
+  * 00 - 0 mins / now
+  * 01 - 5 mins
+  * 02 - 10 mins 
+
+## Notes
+
+AC data sniff.
+
+Windscreen for 10 mins:
+
+INFO[0000] out  [a1] REGISTER SET  (reg 0x1b data 02030000) 
+INFO[0000] in   [a1] REGISTER NTFY (reg 0x10 data 02b00b) 
+INFO[0000] in   [55] REGISTER NTFY (reg 0x1a data 0001000000) 
+INFO[0000] in   [70] REGISTER NTFY (reg 0x1c data 03)   
+
+Heat in 5 mins for 10 mins:
+
+INFO[0000] out  [70] REGISTER SET  (reg 0x1b data 02020001) 
+INFO[0000] in   [01] REGISTER NTFY (reg 0x1a data 0000000101) 
+INFO[0000] in   [86] REGISTER NTFY (reg 0x1c data 02)   
+
+Heat in 0 mins for 10 mins:
+
+INFO[0000] out  [73] REGISTER SET  (reg 0x1b data 02020000) 
+INFO[0000] in   [73] REGISTER NTFY (reg 0x10 data 02b020) 
+INFO[0000] in   [22] REGISTER NTFY (reg 0x1a data 0001000000) 
+INFO[0000] in   [50] REGISTER NTFY (reg 0x1c data 02)   
+
+Heat in 0 mins for 20 mins
+
+INFO[0000] out  [4e] REGISTER SET  (reg 0x1b data 02020100) 
+INFO[0000] in   [1c] REGISTER NTFY (reg 0x10 data 02b034) 
+INFO[0000] in   [e7] REGISTER NTFY (reg 0x1a data 0001010000) 
+INFO[0000] in   [c6] REGISTER NTFY (reg 0x1c data 02)   
+
+Cool 0 mins for 10 mins
+
+INFO[0170] out  [5f] REGISTER SET  (reg 0x1b data 02010000) 
+INFO[0170] in   [5b] REGISTER NTFY (reg 0x10 data 02b139) 
+INFO[0171] in   [18] REGISTER NTFY (reg 0x1a data 0001000000) 
+INFO[0171] in   [95] REGISTER NTFY (reg 0x1c data 01)  
+
+Cool 10 mins for 10 mins
+
+SETREG 0x1b: -> 02010002
+
+Climate timer:
+
+t1 12:00 cool for 10 mins repeat sun:
+set 0x1a: -> 04c00200fe0700fe0700fe0700fe0701
+get 0x05: -> 0100fe0700fe0700fe0700fe0700fe07
+
+t2 07:50 cool for 20 mins repeat sunMonTue:
+set 0x1a: -> 04c0021d7a0200fe0700fe0700fe0701
+get 0x05: -> 0204c00200fe0700fe0700fe0700fe07
+
+disable all:
+
+set 0x1a: 04c0041d7a0400fe0700fe0700fe0701
+
+reset all:
+
+set 0x1a: 00fe0700fe0700fe0700fe0700fe0701
+
+Unplug charger (disabled due timer):
+
+UPDATEREG 0x0c: 01 -> 04
+UPDATEREG 0x0d: 01 -> 02
+UPDATEREG 0x1e: 0001 -> 0000
+
+Plug in charger (disabled due timer):
+
+UPDATEREG 0x0d: 02 -> 01
+UPDATEREG 0x1e: 0000 -> 0001
+
+Plug in charger (within time period):
+phev/register/1e 0002
+charge starts:
+phev/register/1e 0202
+
+unplug:
+phev/register/1e 0002
+then:
+phev/register/1e 0003
+
+plug in:
+phev/register/1e 0002
+(charges)
+
+unplug from charging:
+
+UPDATEREG 0x1e: 0202 -> 0102
+UPDATEREG 0x1e: 0102 -> 0002
+UPDATEREG 0x1e: 0002 -> 0003
+
+plug in, charge:
+
+UPDATEREG 0x1e: 0000 -> 0002
+UPDATEREG 0x1e: 0002 -> 0202
+
+Charge timer:
+
+disabl timer3: 0x19: 7d38b00183bd00017c70380200ffff0300ffff0302
+enable timer3: 0x19: 7d38b00183bd00017c70380100ffff0300ffff0302
+
+settings at 0x4
+
+setting "exterior lights on rmt unlock:
+
+- off -> 0x0f=2b00
+- parking -> 0x0f=2b01
+- head -> 0x0f=2b02
+
+setting "charge light cutout"
+
+- off  -> 0x0f=0700
+- 1min -> 0x0f=0701
+- 2min -> 0x0f=0702
+- 5min -> 0x0f=0703
+- 10min -> 0x0f=0704
+
+setting "headlights on exiting vehicle"
+
+- off -> 0x0f=2a00
+- 15s -> 0x0f=2a01
+- 30s -> 0x0f=2a02
+- 1min-> 0x0f=2a03
+- 3min-> 0x0f=2a04
+
+light ones above followed by setting 0x0e->0x0
 

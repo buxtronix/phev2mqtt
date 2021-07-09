@@ -34,7 +34,8 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "phev2mqtt",
 	Short: "A utility for communicating with a Mitsubishi PHEV",
-	Long:  `Phev tool.`,
+	Long: `See below for subcommands. For further information
+	on this tool, see https://github.com/buxtronix/phev2mqtt.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		level, err := log.ParseLevel(logLevel)
 		if err != nil {
@@ -66,7 +67,7 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.

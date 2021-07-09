@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"fmt"
 	"github.com/spf13/cobra"
 )
 
@@ -25,9 +24,11 @@ import (
 var decodeCmd = &cobra.Command{
 	Use:   "decode",
 	Short: "Commands to decode Phev messages",
-	Long:  `Commands for decoding messages to a from a Phev `,
+	Long: `
+Commands for decoding messages to and from a Phev.
+Subcommands provide specific functionality, see below.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Please specify a sub-command")
 		cmd.Help()
 	},
 }

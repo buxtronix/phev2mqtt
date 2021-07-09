@@ -111,8 +111,7 @@ func (m *mqttClient) publish(topic, payload string) {
 }
 
 func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
-	log.Infof("Topic: %s", msg.Topic())
-	log.Infof("Payload: %s", msg.Payload())
+	log.Infof("Topic: [%s] Payload: [%s]", msg.Topic(), msg.Payload())
 
 	topicParts := strings.Split(msg.Topic(), "/")
 	if strings.HasPrefix(msg.Topic(), m.topic("/set/register/")) {
@@ -135,34 +134,20 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	} else if msg.Topic() == m.topic("/set/parkinglights") {
-		switch payload := string(msg.Payload()); payload {
-		case "on":
-			if err := m.phev.SetRegister(0xb, []byte{0x1}); err != nil {
+		values := map[string]byte{"on": 0x1, "off": 0x2}
+		if v, ok := values[string(msg.Payload())]; ok {
+			if err := m.phev.SetRegister(0xb, []byte{v}); err != nil {
 				log.Infof("Error setting register 0xb: %v", err)
 				return
 			}
-		case "off":
-			if err := m.phev.SetRegister(0xb, []byte{0x2}); err != nil {
-				log.Infof("Error setting register 0xb: %v", err)
-				return
-			}
-		default:
-			log.Errorf("Unsupported payload for %s: %s", msg.Topic(), payload)
 		}
 	} else if msg.Topic() == m.topic("/set/headlights") {
-		switch payload := string(msg.Payload()); payload {
-		case "on":
-			if err := m.phev.SetRegister(0xa, []byte{0x1}); err != nil {
+		values := map[string]byte{"on": 0x1, "off": 0x2}
+		if v, ok := values[string(msg.Payload())]; ok {
+			if err := m.phev.SetRegister(0xa, []byte{v}); err != nil {
 				log.Infof("Error setting register 0xb: %v", err)
 				return
 			}
-		case "off":
-			if err := m.phev.SetRegister(0xa, []byte{0x2}); err != nil {
-				log.Infof("Error setting register 0xb: %v", err)
-				return
-			}
-		default:
-			log.Errorf("Unsupported payload for %s: %s", msg.Topic(), payload)
 		}
 	} else if msg.Topic() == m.topic("/set/cancelchargetimer") {
 		if err := m.phev.SetRegister(0x17, []byte{0x1}); err != nil {
@@ -171,6 +156,26 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 		}
 		if err := m.phev.SetRegister(0x17, []byte{0x11}); err != nil {
 			log.Infof("Error setting register 0x17: %v", err)
+			return
+		}
+	} else if strings.HasPrefix(msg.Topic(), m.topic("/set/climate/")) {
+		modeMap := map[string]byte{"off": 0x0, "cool": 0x1, "heat": 0x2, "windscreen": 0x3}
+		durMap := map[string]byte{"10": 0x0, "20": 0x10, "30": 0x20}
+		parts := strings.Split(msg.Topic(), "/")
+		state := byte(0x02) // initial.
+		mode, ok := modeMap[parts[len(parts)-1]]
+		if !ok {
+			return
+		}
+		duration, ok := durMap[string(msg.Payload())]
+		if mode != 0x0 && !ok {
+			return
+		}
+		if mode == 0x0 {
+			state = 0x1
+		}
+		if err := m.phev.SetRegister(0x1b, []byte{state, mode, duration, 0x0}); err != nil {
+			log.Infof("Error setting register 0x1b: %v", err)
 			return
 		}
 	} else {
@@ -263,6 +268,12 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		m.publish("/door/locked", boolOnOff[reg.Locked])
 	case *protocol.RegisterBatteryLevel:
 		m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
+	case *protocol.RegisterChargePlug:
+		if reg.Connected {
+			m.publish("/charge/plug", "connected")
+		} else {
+			m.publish("/charge/plug", "unplugged")
+		}
 	}
 }
 

@@ -30,14 +30,11 @@ import (
 var fileCmd = &cobra.Command{
 	Use:   "file",
 	Short: "Decode Phev messages from a file",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:.`,
+	Long: `
+Decode raw hex string messages from the provided filename.
+`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 1 {
-			log.Errorf("Missing: filename")
-			return
-		}
 		f, err := os.Open(args[0])
 		if err != nil {
 			panic(err)

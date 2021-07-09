@@ -140,23 +140,25 @@ func (p *PhevMessage) DecodeFromBytes(data []byte) error {
 	if p.Type == CmdInResp && p.Ack == Request {
 		switch p.Register {
 		case VINRegister:
-			p.Reg = &RegisterVIN{}
+			p.Reg = new(RegisterVIN)
 		case ECUVersionRegister:
-			p.Reg = &RegisterECUVersion{}
+			p.Reg = new(RegisterECUVersion)
 		case BatteryLevelRegister:
-			p.Reg = &RegisterBatteryLevel{}
+			p.Reg = new(RegisterBatteryLevel)
 		case BatteryWarningRegister:
-			p.Reg = &RegisterBatteryWarning{}
+			p.Reg = new(RegisterBatteryWarning)
 		case DoorStatusRegister:
-			p.Reg = &RegisterDoorStatus{}
+			p.Reg = new(RegisterDoorStatus)
+		case ChargePlugRegister:
+			p.Reg = new(RegisterChargePlug)
 		case ChargeStatusRegister:
-			p.Reg = &RegisterChargeStatus{}
+			p.Reg = new(RegisterChargeStatus)
 		case ACOperStatusRegister:
-			p.Reg = &RegisterACOperStatus{}
+			p.Reg = new(RegisterACOperStatus)
 		case ACModeRegister:
-			p.Reg = &RegisterACMode{}
+			p.Reg = new(RegisterACMode)
 		default:
-			p.Reg = &RegisterGeneric{}
+			p.Reg = new(RegisterGeneric)
 		}
 		p.Reg.Decode(p)
 	}
@@ -206,8 +208,9 @@ const (
 	BatteryWarningRegister = 0x02
 	DoorStatusRegister     = 0x24
 	ChargeStatusRegister   = 0x1f
-	ACOperStatusRegister   = 0x10
+	ACOperStatusRegister   = 0x1a
 	ACModeRegister         = 0x1c
+	ChargePlugRegister     = 0x1e
 )
 
 type Register interface {
@@ -245,7 +248,7 @@ type RegisterVIN struct {
 }
 
 func (r *RegisterVIN) Decode(m *PhevMessage) {
-	if m.Register != VINRegister {
+	if m.Register != VINRegister || len(m.Data) != 20 {
 		return
 	}
 	r.VIN = string(m.Data[1:17])
@@ -271,7 +274,7 @@ type RegisterECUVersion struct {
 }
 
 func (r *RegisterECUVersion) Decode(m *PhevMessage) {
-	if m.Register != ECUVersionRegister {
+	if m.Register != ECUVersionRegister || len(m.Data) != 13 {
 		return
 	}
 	r.Version = string(m.Data[:9])
@@ -296,7 +299,7 @@ type RegisterBatteryLevel struct {
 }
 
 func (r *RegisterBatteryLevel) Decode(m *PhevMessage) {
-	if m.Register != BatteryLevelRegister {
+	if m.Register != BatteryLevelRegister || len(m.Data) != 4 {
 		return
 	}
 	r.Level = int(m.Data[0])
@@ -321,7 +324,7 @@ type RegisterBatteryWarning struct {
 }
 
 func (r *RegisterBatteryWarning) Decode(m *PhevMessage) {
-	if m.Register != BatteryWarningRegister {
+	if m.Register != BatteryWarningRegister || len(m.Data) != 4 {
 		return
 	}
 	r.Warning = int(m.Data[2])
@@ -346,7 +349,7 @@ type RegisterDoorStatus struct {
 }
 
 func (r *RegisterDoorStatus) Decode(m *PhevMessage) {
-	if m.Register != DoorStatusRegister {
+	if m.Register != DoorStatusRegister || len(m.Data) != 9 {
 		return
 	}
 	r.Locked = m.Data[0] == 0x1
@@ -375,7 +378,7 @@ type RegisterChargeStatus struct {
 }
 
 func (r *RegisterChargeStatus) Decode(m *PhevMessage) {
-	if m.Register != ChargeStatusRegister {
+	if m.Register != ChargeStatusRegister || len(m.Data) != 3 {
 		return
 	}
 	r.Charging = m.Data[0] == 0x1
@@ -416,9 +419,10 @@ type RegisterACOperStatus struct {
 }
 
 func (r *RegisterACOperStatus) Decode(m *PhevMessage) {
-	if m.Register != ACOperStatusRegister {
+	if m.Register != ACOperStatusRegister || len(m.Data) != 5 {
 		return
 	}
+	// reg 0x1a data 0001000000 // on
 	r.Operating = m.Data[1] == 1
 	r.raw = m.Data
 }
@@ -440,23 +444,23 @@ func (r *RegisterACOperStatus) Register() byte {
 
 type RegisterACMode struct {
 	Mode string
-	mode int
 	raw  []byte
 }
 
-var acModes = map[int]string{
-	0: "none",
-	1: "heat",
-	2: "cool",
-	3: "windscreen",
-}
-
 func (r *RegisterACMode) Decode(m *PhevMessage) {
-	if m.Register != ACModeRegister {
+	if len(m.Data) != 1 {
 		return
 	}
-	r.mode = int(m.Data[0])
-	r.Mode = acModes[r.mode]
+	switch m.Data[0] {
+	case 0:
+		r.Mode = "unknown"
+	case 1:
+		r.Mode = "cool"
+	case 2:
+		r.Mode = "heat"
+	case 3:
+		r.Mode = "windscreen"
+	}
 	r.raw = m.Data
 }
 
@@ -465,9 +469,37 @@ func (r *RegisterACMode) Raw() string {
 }
 
 func (r *RegisterACMode) String() string {
-	return fmt.Sprintf("AC mode %s", r.Mode)
+	return r.Mode
 }
 
 func (r *RegisterACMode) Register() byte {
 	return ACModeRegister
+}
+
+type RegisterChargePlug struct {
+	Connected bool
+	raw       []byte
+}
+
+func (r *RegisterChargePlug) Decode(m *PhevMessage) {
+	if len(m.Data) != 2 {
+		return
+	}
+	r.Connected = m.Data[1] == 1
+	r.raw = m.Data
+}
+
+func (r *RegisterChargePlug) Raw() string {
+	return hex.EncodeToString(r.raw)
+}
+
+func (r *RegisterChargePlug) String() string {
+	if r.Connected {
+		return "Charger connected"
+	}
+	return "Charger disconnected"
+}
+
+func (r *RegisterChargePlug) Register() byte {
+	return ChargePlugRegister
 }
