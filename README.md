@@ -1,0 +1,125 @@
+# phev2mqtt
+
+Library and utility to interact with a Mitsubishi Outlander PHEV via the Wifi
+remote control protocol.
+
+Inspired by https://github.com/phev-remote/ but written entirely in Go.
+
+For further information, read the [protocol documentation](protocol/README.md).
+
+Tested against a MY18 vehicle.
+
+## Supported functionality
+
+ * MQTT proxy to Phev
+ * Connect to Phev and sniff messages
+ * Decode raw messages from file or command line
+ * Decode and replay a connection from a PCAP (Wireshark) sniff.
+ * *Only tested on a MY18 Phev*
+
+## Requirements
+
+ * Go compiler
+ * To connect, a previously registered connection to a phone/tablet.
+   * This library doesnt yet support client registration.
+
+## Licence, etc
+
+Licenced under the GPLv2.
+
+Copyright 2021 Ben Buxton <bbuxton@gmail.com>
+
+Contributions and PRs are welcome.
+
+## Getting started.
+
+### Compiling
+
+#### Install Go
+
+ * Download and install the latest [Go compiler](https://golang.org/dl/)
+   * Your distro packager may have an old version
+   * For raspbian choose the ARMv6 release
+#### Install PCAP dev libraries
+
+ * Ensure you have install the libpcap-dev package
+
+#### Download, extract, and compile phev2mqtt
+
+ * Download the phev2mqtt archive
+ * Extract it
+ * Go into its the top level directory run *go build*
+ * Verify it runs with *./phev2mqtt -h*
+
+### Connecting to the vehicle.
+
+As the program does not (yet) support client registration, you will first need to
+register a phone/tablet to the car. Follow the [Mitsubishi instructions](https://www.mitsubishi-motors.com/en/products/outlander_phev/app/remote/)
+and register the phone app to the car. You will need the Wifi credentials provided
+with the car.
+
+Next, find the MAC address of the client. On your phone/table, go to Wifi settings,
+search for the car SSID and find the MAC address used. On Android this will likely
+be a randomised address. Note this address down.
+
+On your computer running the phev2mqtt tools, configure a new Wifi connection to the
+car's SSID, and it's also essential to set the Wifi mac address to the client MAC address
+you noted above. Poke around online for how to do this for your system.
+
+Once connected to the car, you can sniff for messages by running *phev2mqtt client watch*.
+The phone client needs to be disconnected for this to work.
+You'll see a bunch of data go by - some of those will be decoded into readable
+messages such as charge and AC status.
+
+### MQTT Gateway
+
+The primary feature of this code is to run as a proxy between the car and
+MQTT. Registers with car status are sent to MQTT, both as raw register
+values and decoded functional values.
+
+Start the MQTT gateway with:
+
+`./phev2mqtt client mqtt --mqtt_server tcp://<your_mqtt_address:1883/ [--mqtt_username <mqtt_username>] [--mqtt_password <mqtt_password>]`
+
+Topics are as follows:
+
+| Topic/prefix | Direction | Description |
+|---|---|---|
+| phev/register/[register] | Out | Raw values of each register, as hex strings |
+| phev/available | Out | Wifi connection status to car. *online* or *offline* |
+| phev/battery/level | Out | Current drive battery level as a percent |
+| phev/ac/status | Out | Whether the car AC is on |
+| phev/ac/mode | Out | Mode of the AC, if on. *cool*, *heat*, *windscreen* |
+| phev/charge/charging | Out | Whether the battery is charging. *on* or *off* |
+| phev/charge/remaining | Out | Minutes left, if charging. |
+| phev/door/locked | Out | Whether the car is locked. *on* or *off* |
+| phev/vim | Out | Discovered VIN of the car |
+| phev/registrations | Out | Number of wifi clients registered to the car |
+| phev/set/register/[register] | In | Set register 0x[register] to value 0x[payload] |
+| phev/set/parkinglights | In | Set parking lights *on* or *off* |
+| phev/set/headlights | In | Set head lights *on* or *off* |
+| phev/set/cancelchargetimer | In | Cancel charge timer (any payload) |
+
+
+### Sniffing the official client
+
+Further development of this library can be done with a packet dump of the official
+Mistubishi app.
+
+A number of sniffer apps for phones are available for this. Two that the author have
+used are *Packet Capture* and *PCAP Remote*. These do not require root access, yet
+can successfully sniff the traffic into PCAP files for further analysis.
+
+*Packet Capture* can save the PCAP files to your local phone storage which you can
+then extract off the phone.
+
+*PCAP Remote* is a little more involved, but allows for live sniffing of the traffic.
+
+Once you have downloaded the PCAP file(s) from the phone, you can analyse them with
+the command *phev2mqtt decode pcap <filename>*. Adjust the verbosity level (-v)
+between 'info', 'debug' and 'trace' for more details.
+
+Additionally, the flag '--latency' will use the PCAP packet timestamps to decode
+the packets with original timings which can help pinpoint app events.
+
+
