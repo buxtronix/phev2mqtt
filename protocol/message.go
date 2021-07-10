@@ -344,15 +344,25 @@ func (r *RegisterBatteryWarning) Register() byte {
 }
 
 type RegisterDoorStatus struct {
+	// Locked is true if the vehicle is locked.
 	Locked bool
-	raw    []byte
+	// The below are true if the corresponding door is open.
+	FrontLeft, FrontRight, RearLeft, RearRight bool
+	Bonnet, Boot                               bool
+	raw                                        []byte
 }
 
 func (r *RegisterDoorStatus) Decode(m *PhevMessage) {
-	if m.Register != DoorStatusRegister || len(m.Data) != 9 {
+	if m.Register != DoorStatusRegister || len(m.Data) != 10 {
 		return
 	}
 	r.Locked = m.Data[0] == 0x1
+	r.FrontRight = m.Data[3] == 0x1
+	r.FrontLeft = m.Data[4] == 0x1
+	r.RearRight = m.Data[5] == 0x1
+	r.RearLeft = m.Data[6] == 0x1
+	r.Boot = m.Data[7] == 0x1
+	r.Bonnet = m.Data[8] == 0x1
 	r.raw = m.Data
 }
 
@@ -361,10 +371,33 @@ func (r *RegisterDoorStatus) Raw() string {
 }
 
 func (r *RegisterDoorStatus) String() string {
-	if r.Locked {
-		return "Doors locked."
+	openStr := ""
+	if r.FrontRight || r.FrontLeft || r.RearRight || r.RearLeft || r.Boot || r.Bonnet {
+
+		openStr = " Open:"
+		if r.FrontRight {
+			openStr += " front_right"
+		}
+		if r.FrontLeft {
+			openStr += " front_left"
+		}
+		if r.RearRight {
+			openStr += " rear_right"
+		}
+		if r.RearLeft {
+			openStr += " rear_left"
+		}
+		if r.Bonnet {
+			openStr += " bonnet"
+		}
+		if r.Boot {
+			openStr += " boot"
+		}
 	}
-	return "Doors unlocked."
+	if r.Locked {
+		return "Doors locked." + openStr
+	}
+	return "Doors unlocked." + openStr
 }
 
 func (r *RegisterDoorStatus) Register() byte {

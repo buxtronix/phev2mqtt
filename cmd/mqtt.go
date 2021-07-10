@@ -247,6 +247,10 @@ var boolOnOff = map[bool]string{
 	false: "off",
 	true:  "on",
 }
+var boolOpen = map[bool]string{
+	false: "closed",
+	true:  "open",
+}
 
 func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 	dataStr := hex.EncodeToString(msg.Data)
@@ -266,6 +270,12 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		m.publish("/charge/remaining", fmt.Sprintf("%d", reg.Remaining))
 	case *protocol.RegisterDoorStatus:
 		m.publish("/door/locked", boolOnOff[reg.Locked])
+		m.publish("/door/rear_left", boolOpen[reg.RearLeft])
+		m.publish("/door/rear_right", boolOpen[reg.RearRight])
+		m.publish("/door/front_right", boolOpen[reg.FrontRight])
+		m.publish("/door/front_left", boolOpen[reg.FrontLeft])
+		m.publish("/door/bonnet", boolOpen[reg.Bonnet])
+		m.publish("/door/boot", boolOpen[reg.Boot])
 	case *protocol.RegisterBatteryLevel:
 		m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
 	case *protocol.RegisterChargePlug:

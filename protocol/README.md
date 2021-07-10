@@ -199,8 +199,8 @@ Registers contain the bulk of information on the state of the vehicle.
 |0x1 | ?? |  |
 |0x2 | Battery warning |  |
 |0x3 | ?? |  |
-|0x4 | ?? |  |
-|0x5 | ?? |  |
+|0x4 | Charge timer settings |  |
+|0x5 | Climate timer settings | |
 |0x6 | ?? | Similar to 0x15 |
 |0x7 | ?? |  |
 |0xa | Head light state? | Write to set the head lights on |
@@ -213,8 +213,7 @@ Registers contain the bulk of information on the state of the vehicle.
 |0x12 | TimeSync |  |
 |0x14 | ?? |  |
 |0x15 | VIN |  |
-|0x16 | ?? |  |
-|0x17 | Charge timer? | Write 0x1 then 0x11 to disable charge timer  |
+|0x16 | ?? | Seems to convey some other settings |
 |0x1a | ?? |  |
 |0x1b | ?? |  |
 |0x1c | AirCon Mode |  |
@@ -291,7 +290,8 @@ Single byte.
 ### 0x1e - Charge plug status
 
 0000 - Unplugged
-0001 - Plugged in
+0001 - Plugged in, not charging
+
 
 ### 0x1f - Charging status
 
@@ -314,27 +314,27 @@ AC timer sniff:
 ```
 Byte 0
 |
-01000000000000000000
-                   |
-                Byte 19
+1000000000
+         |
+       Byte 9
 ```
 
 Below shows what is represented by each byte. For door/boot/bonnet,
 the value is 1 if open, else 0.
 
-1 - Lock status [1=locked 2=unlocked]
+0 - Lock status [1=locked 2=unlocked]
 
-7 - Front Right Door
+3 - Front Right Door
 
-9 - Front Left Door
+4 - Front Left Door
 
-11 - Read Right Door
+5 - Read Right Door
 
-13 - Rear Left Door
+6 - Rear Left Door
 
-15 - Boot / Trunk
+7 - Boot / Trunk
 
-17 - Bonnet / Hood
+8 - Bonnet / Hood
 
 ### 0xc0 - ECU Version string
 
@@ -356,7 +356,7 @@ A string with the software version of the ECU.
 
 #### 0x1b - set climate state
 
-[02<state><duration><start>]
+[02[state][duration][start]]
 
 * Byte 0 - 02
 * Byte 1 - climate state
@@ -374,6 +374,10 @@ A string with the software version of the ECU.
 
 ## Notes
 
+Things discovered sniffing the app...
+
+
+```
 AC data sniff.
 
 Windscreen for 10 mins:
@@ -397,25 +401,21 @@ INFO[0000] in   [22] REGISTER NTFY (reg 0x1a data 0001000000)
 INFO[0000] in   [50] REGISTER NTFY (reg 0x1c data 02)   
 
 Heat in 0 mins for 20 mins
-
 INFO[0000] out  [4e] REGISTER SET  (reg 0x1b data 02020100) 
 INFO[0000] in   [1c] REGISTER NTFY (reg 0x10 data 02b034) 
 INFO[0000] in   [e7] REGISTER NTFY (reg 0x1a data 0001010000) 
 INFO[0000] in   [c6] REGISTER NTFY (reg 0x1c data 02)   
 
 Cool 0 mins for 10 mins
-
 INFO[0170] out  [5f] REGISTER SET  (reg 0x1b data 02010000) 
 INFO[0170] in   [5b] REGISTER NTFY (reg 0x10 data 02b139) 
 INFO[0171] in   [18] REGISTER NTFY (reg 0x1a data 0001000000) 
 INFO[0171] in   [95] REGISTER NTFY (reg 0x1c data 01)  
 
 Cool 10 mins for 10 mins
-
 SETREG 0x1b: -> 02010002
 
 Climate timer:
-
 t1 12:00 cool for 10 mins repeat sun:
 set 0x1a: -> 04c00200fe0700fe0700fe0700fe0701
 get 0x05: -> 0100fe0700fe0700fe0700fe0700fe07
@@ -498,4 +498,5 @@ setting "headlights on exiting vehicle"
 - 3min-> 0x0f=2a04
 
 light ones above followed by setting 0x0e->0x0
+```
 
