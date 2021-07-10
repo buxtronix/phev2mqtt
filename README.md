@@ -12,6 +12,7 @@ Tested against a MY18 vehicle.
 ## Supported functionality
 
  * MQTT proxy to Phev
+ * Home Assistant discovery
  * Connect to Phev and sniff messages
  * Decode raw messages from file or command line
  * Decode and replay a connection from a PCAP (Wireshark) sniff.
@@ -109,6 +110,8 @@ The following topics are published:
 
 The following topics are subscribed to and can be used to change state on the car:
 
+| Topic/prefix | Description |
+|---|---|
 | phev/set/register/[register] | Set register 0x[register] to value 0x[payload] |
 | phev/set/parkinglights | Set parking lights *on* or *off* |
 | phev/set/headlights | Set head lights *on* or *off* |
@@ -118,6 +121,8 @@ The following topics are subscribed to and can be used to change state on the ca
 #### Home Assistant discovery
 
 The client supports [Home Assistant MQTT Discovery](https://www.home-assistant.io/docs/mqtt/discovery/) by default.
+
+After initial discovery, re-run the binary for the entities to appear.
 
 You can disable this with `--ha_discovery=false` or change the discovery prefix, the default is `--ha_discovery_prefix=homeassistant`.
 
