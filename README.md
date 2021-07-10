@@ -89,11 +89,21 @@ The following topics are published:
 | phev/register/[register] | Raw values of each register, as hex strings |
 | phev/available | Wifi connection status to car. *online* or *offline* |
 | phev/battery/level | Current drive battery level as a percent |
-| phev/ac/status | Whether the car AC is on |
-| phev/ac/mode | Mode of the AC, if on. *cool*, *heat*, *windscreen* |
+| phev/climate/status | Whether the car AC is on |
+| phev/climate/mode | Mode of the AC, if on. *cool*, *heat*, *windscreen* |
+| phev/climate/[mode] | Alternative of above. Modes are *cool*, *heat*, *windscreen* which can be *off* or *on* |
 | phev/charge/charging | Whether the battery is charging. *on* or *off* |
+| phev/charge/plug | If the charging plug is *unplugged* or *connected*. |
 | phev/charge/remaining | Minutes left, if charging. |
 | phev/door/locked | Whether the car is locked. *on* or *off* |
+| phev/door/front_left | State of doors. *closed* or *open* |
+| phev/door/front_right | State of doors. *closed* or *open* |
+| phev/door/rear_left | State of doors. *closed* or *open* |
+| phev/door/rear_right | State of doors. *closed* or *open* |
+| phev/door/bonnet | State of doors. *closed* or *open* |
+| phev/door/boot | State of doors. *closed* or *open* |
+| phev/lights/parking | Parking lights. *on* or *off* |
+| phev/lights/head | Head lights. *on* or *off* |
 | phev/vin | Discovered VIN of the car |
 | phev/registrations | Number of wifi clients registered to the car |
 
@@ -103,8 +113,13 @@ The following topics are subscribed to and can be used to change state on the ca
 | phev/set/parkinglights | Set parking lights *on* or *off* |
 | phev/set/headlights | Set head lights *on* or *off* |
 | phev/set/cancelchargetimer | Cancel charge timer (any payload) |
-| phev/set/climate/[mode] | Set ac/climate state (cool/heat/windscreen/off) for [payload] (10/20/30) |
+| phev/set/climate/[mode] | Set ac/climate state (cool/heat/windscreen/off) for [payload] (10[on]/20/30) |
 
+#### Home Assistant discovery
+
+The client supports [Home Assistant MQTT Discovery](https://www.home-assistant.io/docs/mqtt/discovery/) by default.
+
+You can disable this with `--ha_discovery=false` or change the discovery prefix, the default is `--ha_discovery_prefix=homeassistant`.
 
 ### Sniffing the official client
 

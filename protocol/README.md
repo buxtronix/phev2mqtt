@@ -217,7 +217,7 @@ Registers contain the bulk of information on the state of the vehicle.
 |0x1a | ?? |  |
 |0x1b | ?? |  |
 |0x1c | AirCon Mode |  |
-|0x1d | Battery Level |  |
+|0x1d | Battery Level / light status|  |
 |0x1e | Charge plug status |  |
 |0x1f | Charge State |  |
 |0x21 | ?? |  |
@@ -276,7 +276,7 @@ Single byte.
 |2 | Heating |
 |3 | Windscreen |
 
-### 0x1d - Drive battery level
+### 0x1d - Drive battery level / parking light status
 
 ```
 10000003
@@ -285,7 +285,9 @@ Single byte.
 | Byte(s) | Description |
 |--|--|
 |0 | Drive battery level % |
-| 1-3 | Unknown |
+|1 | Unknown |
+|2 | Parking light status 0/1 |
+|3 | Unknown |
 
 ### 0x1e - Charge plug status
 
@@ -335,6 +337,8 @@ the value is 1 if open, else 0.
 7 - Boot / Trunk
 
 8 - Bonnet / Hood
+
+9 - Headlight state
 
 ### 0xc0 - ECU Version string
 

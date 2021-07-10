@@ -40,9 +40,47 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		mc := &mqttClient{}
+		mc := &mqttClient{climate: new(climate)}
 		return mc.Run(cmd, args)
 	},
+}
+
+// Tracks complete climate state as on and mode are separately
+// sent by the car.
+type climate struct {
+	state *bool
+	mode  *string
+}
+
+func (c *climate) setMode(m string) {
+	c.mode = &m
+}
+func (c *climate) setState(state bool) {
+	c.state = &state
+}
+
+func (c *climate) mqttStates() map[string]string {
+	m := map[string]string{
+		"/climate/cool":       "off",
+		"/climate/heat":       "off",
+		"/climate/windscreen": "off",
+	}
+	if !c.ready() || !*c.state {
+		return m
+	}
+	switch *c.mode {
+	case "cool":
+		m["/climate/cool"] = "on"
+	case "heat":
+		m["/climate/heat"] = "on"
+	case "windscreen":
+		m["/climate/windscreen"] = "on"
+	}
+	return m
+}
+
+func (c *climate) ready() bool {
+	return c.mode != nil && c.state != nil
 }
 
 type mqttClient struct {
@@ -54,6 +92,11 @@ type mqttClient struct {
 	phev *client.Client
 
 	prefix string
+
+	haDiscovery       bool
+	haDiscoveryPrefix string
+
+	climate *climate
 }
 
 func (m *mqttClient) topic(topic string) string {
@@ -67,6 +110,8 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	mqttUsername, _ := cmd.Flags().GetString("mqtt_username")
 	mqttPassword, _ := cmd.Flags().GetString("mqtt_password")
 	m.prefix, _ = cmd.Flags().GetString("mqtt_topic_prefix")
+	m.haDiscovery, _ = cmd.Flags().GetBool("ha_discovery")
+	m.haDiscoveryPrefix, _ = cmd.Flags().GetString("ha_discovery_prefix")
 
 	m.updateInterval, err = cmd.Flags().GetDuration("update_interval")
 	if err != nil {
@@ -97,7 +142,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 			log.Error(err)
 		}
 		m.publish("/available", "offline")
-		time.Sleep(15 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -135,7 +180,7 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 		}
 	} else if msg.Topic() == m.topic("/set/parkinglights") {
 		values := map[string]byte{"on": 0x1, "off": 0x2}
-		if v, ok := values[string(msg.Payload())]; ok {
+		if v, ok := values[strings.ToLower(string(msg.Payload()))]; ok {
 			if err := m.phev.SetRegister(0xb, []byte{v}); err != nil {
 				log.Infof("Error setting register 0xb: %v", err)
 				return
@@ -143,7 +188,7 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 		}
 	} else if msg.Topic() == m.topic("/set/headlights") {
 		values := map[string]byte{"on": 0x1, "off": 0x2}
-		if v, ok := values[string(msg.Payload())]; ok {
+		if v, ok := values[strings.ToLower(string(msg.Payload()))]; ok {
 			if err := m.phev.SetRegister(0xa, []byte{v}); err != nil {
 				log.Infof("Error setting register 0xb: %v", err)
 				return
@@ -159,16 +204,21 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	} else if strings.HasPrefix(msg.Topic(), m.topic("/set/climate/")) {
-		modeMap := map[string]byte{"off": 0x0, "cool": 0x1, "heat": 0x2, "windscreen": 0x3}
-		durMap := map[string]byte{"10": 0x0, "20": 0x10, "30": 0x20}
+		modeMap := map[string]byte{"off": 0x0, "OFF": 0x0, "cool": 0x1, "heat": 0x2, "windscreen": 0x3}
+		durMap := map[string]byte{"10": 0x0, "20": 0x10, "30": 0x20, "on": 0x0, "off": 0x0}
 		parts := strings.Split(msg.Topic(), "/")
 		state := byte(0x02) // initial.
 		mode, ok := modeMap[parts[len(parts)-1]]
 		if !ok {
+			log.Errorf("Unknown climate mode: %s", parts[len(parts)-1])
 			return
+		}
+		if strings.ToLower(string(msg.Payload())) == "off" {
+			mode = 0x0
 		}
 		duration, ok := durMap[string(msg.Payload())]
 		if mode != 0x0 && !ok {
+			log.Errorf("Unknown climate duration: %s", msg.Payload())
 			return
 		}
 		if mode == 0x0 {
@@ -258,32 +308,228 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 	switch reg := msg.Reg.(type) {
 	case *protocol.RegisterVIN:
 		m.publish("/vin", reg.VIN)
+		m.publishHomeAssistantDiscovery(reg.VIN, m.prefix, "Phev")
 		m.publish("/registrations", fmt.Sprintf("%d", reg.Registrations))
 	case *protocol.RegisterECUVersion:
 		m.publish("/ecuversion", reg.Version)
 	case *protocol.RegisterACMode:
-		m.publish("/ac/mode", reg.Mode)
+		m.climate.setMode(reg.Mode)
+		for t, p := range m.climate.mqttStates() {
+			m.publish(t, p)
+		}
+		m.publish("/climate/mode", reg.Mode)
 	case *protocol.RegisterACOperStatus:
-		m.publish("/ac/status", boolOnOff[reg.Operating])
+		m.climate.setState(reg.Operating)
+		for t, p := range m.climate.mqttStates() {
+			m.publish(t, p)
+		}
+		m.publish("/climate/state", boolOnOff[reg.Operating])
 	case *protocol.RegisterChargeStatus:
 		m.publish("/charge/charging", boolOnOff[reg.Charging])
 		m.publish("/charge/remaining", fmt.Sprintf("%d", reg.Remaining))
 	case *protocol.RegisterDoorStatus:
-		m.publish("/door/locked", boolOnOff[reg.Locked])
+		m.publish("/door/locked", boolOpen[!reg.Locked])
 		m.publish("/door/rear_left", boolOpen[reg.RearLeft])
 		m.publish("/door/rear_right", boolOpen[reg.RearRight])
 		m.publish("/door/front_right", boolOpen[reg.FrontRight])
 		m.publish("/door/front_left", boolOpen[reg.FrontLeft])
 		m.publish("/door/bonnet", boolOpen[reg.Bonnet])
 		m.publish("/door/boot", boolOpen[reg.Boot])
+		m.publish("/lights/head", boolOnOff[reg.Headlights])
 	case *protocol.RegisterBatteryLevel:
 		m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
+		m.publish("/lights/parking", boolOnOff[reg.ParkingLights])
 	case *protocol.RegisterChargePlug:
 		if reg.Connected {
 			m.publish("/charge/plug", "connected")
 		} else {
 			m.publish("/charge/plug", "unplugged")
 		}
+	}
+}
+
+// Publish home assistant discovery message.
+// Uses the vehicle VIN, so sent after VIN discovery.
+var publishedDiscovery = false
+
+func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
+
+	if publishedDiscovery || !m.haDiscovery {
+		return
+	}
+	publishedDiscovery = true
+	discoveryData := map[string]string{
+		// Doors.
+		"%s/binary_sensor/%s_door_locked/config": `{
+		"device_class": "lock",
+		"name": "__NAME__ Locked",
+		"state_topic": "~/door/locked",
+		"payload_off": "closed",
+		"payload_on": "open",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___door_locked",
+		"~": "__TOPIC__"}`,
+		"%s/binary_sensor/%s_door_bonnet/config": `{
+		"device_class": "door",
+		"name": "__NAME__ Bonnet",
+		"state_topic": "~/door/bonnet",
+		"payload_off": "closed",
+		"payload_on": "open",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___door_bonnet",
+		"~": "__TOPIC__"}`,
+		"%s/binary_sensor/%s_door_boot/config": `{
+		"device_class": "door",
+		"name": "__NAME__ Boot",
+		"state_topic": "~/door/boot",
+		"payload_off": "closed",
+		"payload_on": "open",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___door_boot",
+		"~": "__TOPIC__"}`,
+		"%s/binary_sensor/%s_door_front_left/config": `{
+		"device_class": "door",
+		"name": "__NAME__ Front Left Door",
+		"state_topic": "~/door/front_left",
+		"payload_off": "closed",
+		"payload_on": "open",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___door_front_left",
+		"~": "__TOPIC__"}`,
+		"%s/binary_sensor/%s_door_front_right/config": `{
+		"device_class": "door",
+		"name": "__NAME__ Front Right Door",
+		"state_topic": "~/door/front_right",
+		"payload_off": "closed",
+		"payload_on": "open",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___door_front_right",
+		"~": "__TOPIC__"}`,
+		"%s/binary_sensor/%s_door_rear_left/config": `{
+		"device_class": "door",
+		"name": "__NAME__ Rear Left Door",
+		"state_topic": "~/door/rear_left",
+		"payload_off": "closed",
+		"payload_on": "open",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___door_rear_left",
+		"~": "__TOPIC__"}`,
+		"%s/binary_sensor/%s_door_rear_right/config": `{
+		"device_class": "door",
+		"name": "__NAME__ Rear Right Door",
+		"state_topic": "~/door/rear_right",
+		"payload_off": "closed",
+		"payload_on": "open",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___door_rear_right",
+		"~": "__TOPIC__"}`,
+
+		// Battery and charging
+		"%s/sensor/%s_battery_level/config": `{
+		"device_class": "battery",
+		"name": "__NAME__ Battery",
+		"state_topic": "~/battery/level",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___battery_level",
+		"~": "__TOPIC__"}`,
+		"%s/sensor/%s_battery_charge_remaining/config": `{
+		"name": "__NAME__ Charge Remaining",
+		"state_topic": "~/charge/remaining",
+		"unit_of_measurement": "min",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___battery_charge_remaining",
+		"~": "__TOPIC__"}`,
+		"%s/binary_sensor/%s_charger_connected/config": `{
+		"device_class": "plug",
+		"name": "__NAME__ Charger Connected",
+		"state_topic": "~/charge/plug",
+		"payload_on": "connected",
+		"payload_off": "unplugged",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___charger_connected",
+		"~": "__TOPIC__"}`,
+		"%s/binary_sensor/%s_battery_charging/config": `{
+		"device_class": "battery_charging",
+		"name": "__NAME__ Charging",
+		"state_topic": "~/charge/charging",
+		"payload_on": "on",
+		"payload_off": "off",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___battery_charging",
+		"~": "__TOPIC__"}`,
+		"%s/switch/%s_cancel_charge_timer/config": `{
+		"name": "__NAME__ Disable Charge Timer",
+		"icon": "mdi:timer-off",
+		"state_topic": "~/battery/charging",
+		"command_topic": "~/set/cancelchargetimer",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___cancel_charge_timer",
+		"~": "__TOPIC__"}`,
+		// Climate
+		"%s/switch/%s_climate_heat/config": `{
+		"name": "__NAME__ Heat",
+		"icon": "mdi:weather-sunny",
+		"state_topic": "~/climate/heat",
+		"command_topic": "~/set/climate/heat",
+		"payload_off": "off",
+		"payload_on": "on",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___climate_heat",
+		"~": "__TOPIC__"}`,
+		"%s/switch/%s_climate_cool/config": `{
+		"name": "__NAME__ cool",
+		"icon": "mdi:air-conditioner",
+		"state_topic": "~/climate/cool",
+		"command_topic": "~/set/climate/cool",
+		"payload_off": "off",
+		"payload_on": "on",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___climate_cool",
+		"~": "__TOPIC__"}`,
+		"%s/switch/%s_climate_windscreen/config": `{
+		"name": "__NAME__ windscreen",
+		"state_topic": "~/climate/windscreen",
+		"command_topic": "~/set/climate/windscreen",
+		"payload_off": "off",
+		"payload_on": "on",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___climate_windscreen",
+		"icon": "mdi:car-windshield-outline",
+		"~": "__TOPIC__"}`,
+		// Lights.
+		"%s/light/%s_parkinglights/config": `{
+		"name": "__NAME__ Park Lights",
+		"icon": "mdi:car-parking-lights",
+		"state_topic": "~/lights/parking",
+		"command_topic": "~/set/parkinglights",
+		"payload_off": "off",
+		"payload_on": "on",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___parkinglights",
+		"~": "__TOPIC__"}`,
+		"%s/light/%s_headlights/config": `{
+		"name": "__NAME__ Head Lights",
+		"icon": "mdi:car-light-high",
+		"state_topic": "~/lights/head",
+		"command_topic": "~/set/headlights",
+		"payload_off": "off",
+		"payload_on": "on",
+		"avty_t": "~/available",
+		"unique_id": "__VIN___headlights",
+		"~": "__TOPIC__"}`,
+	}
+	mappings := map[string]string{
+		"__NAME__":  name,
+		"__VIN__":   vin,
+		"__TOPIC__": topic,
+	}
+	for topic, d := range discoveryData {
+		topic = fmt.Sprintf(topic, m.haDiscoveryPrefix, vin)
+		for in, out := range mappings {
+			d = strings.Replace(d, in, out, -1)
+		}
+		m.client.Publish(topic, 0, false, d)
+		//m.client.Publish(topic, 0, false, "{}")
 	}
 }
 
@@ -303,5 +549,7 @@ func init() {
 	mqttCmd.Flags().String("mqtt_username", "", "Username to login to MQTT server")
 	mqttCmd.Flags().String("mqtt_password", "", "Password to login to MQTT server")
 	mqttCmd.Flags().String("mqtt_topic_prefix", "phev", "Prefix for MQTT topics")
+	mqttCmd.Flags().Bool("ha_discovery", true, "Enable Home Assistant MQTT discovery")
+	mqttCmd.Flags().String("ha_discovery_prefix", "homeassistant", "Prefix for Home Assistant MQTT discovery")
 	mqttCmd.Flags().Duration("update_interval", 5*time.Minute, "How often to request force updates")
 }

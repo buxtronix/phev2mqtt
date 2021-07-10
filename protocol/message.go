@@ -294,8 +294,9 @@ func (r *RegisterECUVersion) Register() byte {
 }
 
 type RegisterBatteryLevel struct {
-	Level int
-	raw   []byte
+	Level         int
+	ParkingLights bool // yes parking lights here.
+	raw           []byte
 }
 
 func (r *RegisterBatteryLevel) Decode(m *PhevMessage) {
@@ -303,6 +304,7 @@ func (r *RegisterBatteryLevel) Decode(m *PhevMessage) {
 		return
 	}
 	r.Level = int(m.Data[0])
+	r.ParkingLights = m.Data[2] == 0x1
 	r.raw = m.Data
 }
 
@@ -349,7 +351,9 @@ type RegisterDoorStatus struct {
 	// The below are true if the corresponding door is open.
 	FrontLeft, FrontRight, RearLeft, RearRight bool
 	Bonnet, Boot                               bool
-	raw                                        []byte
+	// Headlight state is in this register!
+	Headlights bool
+	raw        []byte
 }
 
 func (r *RegisterDoorStatus) Decode(m *PhevMessage) {
@@ -363,6 +367,7 @@ func (r *RegisterDoorStatus) Decode(m *PhevMessage) {
 	r.RearLeft = m.Data[6] == 0x1
 	r.Boot = m.Data[7] == 0x1
 	r.Bonnet = m.Data[8] == 0x1
+	r.Headlights = m.Data[9] == 0x1
 	r.raw = m.Data
 }
 
@@ -518,7 +523,7 @@ func (r *RegisterChargePlug) Decode(m *PhevMessage) {
 	if len(m.Data) != 2 {
 		return
 	}
-	r.Connected = m.Data[1] == 1
+	r.Connected = (m.Data[1] == 1 || m.Data[0] > 0)
 	r.raw = m.Data
 }
 
