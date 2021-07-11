@@ -89,7 +89,8 @@ type mqttClient struct {
 	mqttData       map[string]string
 	updateInterval time.Duration
 
-	phev *client.Client
+	phev        *client.Client
+	lastConnect time.Time
 
 	prefix string
 
@@ -141,18 +142,19 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		if err := m.handlePhev(cmd); err != nil {
 			log.Error(err)
 		}
-		m.publish("/available", "offline")
-		time.Sleep(5 * time.Second)
+		// Publish as offline if last connection was >30s ago.
+		if time.Now().Sub(m.lastConnect) > 30*time.Second {
+			m.publish("/available", "offline")
+		}
+		time.Sleep(time.Second)
 	}
 }
 
 func (m *mqttClient) publish(topic, payload string) {
-	if cache := m.mqttData[topic]; cache == payload {
-		// Only publish new data.
-		return
+	if cache := m.mqttData[topic]; cache != payload {
+		m.client.Publish(m.topic(topic), 0, false, payload)
+		m.mqttData[topic] = payload
 	}
-	m.client.Publish(m.topic(topic), 0, false, payload)
-	m.mqttData[topic] = payload
 }
 
 func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
@@ -249,6 +251,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 		return err
 	}
 	m.publish("/available", "online")
+	m.lastConnect = time.Now()
 
 	var encodingErrorCount = 0
 	var lastEncodingError time.Time
@@ -494,7 +497,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		"payload_on": "on",
 		"avty_t": "~/available",
 		"unique_id": "__VIN___climate_windscreen",
-		"icon": "mdi:car-windshield-outline",
+		"icon": "mdi:car-defrost-front",
 		"~": "__TOPIC__"}`,
 		// Lights.
 		"%s/light/%s_parkinglights/config": `{

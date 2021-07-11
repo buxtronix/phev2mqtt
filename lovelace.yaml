@@ -1,0 +1,116 @@
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: button
+            tap_action:
+              action: toggle
+            entity: switch.phev_cool
+          - type: button
+            tap_action:
+              action: toggle
+            entity: switch.phev_heat
+          - type: button
+            tap_action:
+              action: toggle
+            entity: switch.phev_windscreen
+      - type: horizontal-stack
+        cards:
+          - type: picture-elements
+            elements:
+              - type: state-icon
+                entity: light.phev_park_lights
+                style:
+                  top: 95%
+                  left: 30%
+              - type: state-icon
+                entity: light.phev_head_lights
+                style:
+                  top: 5%
+                  left: 50%
+              - type: state-icon
+                entity: binary_sensor.phev_boot
+                style:
+                  top: 90%
+                  left: 50%
+              - type: state-icon
+                entity: binary_sensor.phev_bonnet
+                style:
+                  top: 17%
+                  left: 50%
+              - type: state-icon
+                entity: binary_sensor.phev_front_left_door
+                icon: mdi:car-door
+                style:
+                  top: 50%
+                  left: 7%
+              - type: state-icon
+                entity: binary_sensor.phev_front_right_door
+                icon: mdi:car-door
+                style:
+                  top: 50%
+                  left: 90%
+              - type: state-icon
+                entity: binary_sensor.phev_rear_left_door
+                icon: mdi:car-door
+                style:
+                  top: 65%
+                  left: 7%
+              - type: state-icon
+                entity: binary_sensor.phev_rear_right_door
+                icon: mdi:car-door
+                style:
+                  top: 65%
+                  left: 90%
+              - type: state-icon
+                entity: binary_sensor.phev_charger_connected
+                style:
+                  top: 80%
+                  left: 90%
+              - type: state-icon
+                entity: binary_sensor.phev_locked
+                style:
+                  top: 60%
+                  left: 50%
+            image: https://ha.cactii.net/local/car-top-1.png
+          - type: gauge
+            tap_action:
+              action: toggle
+            entity: sensor.phev_battery
+            unit: '%'
+          - type: custom:button-card
+            entity: binary_sensor.phev_charger_connected
+            name: Charger
+            aspect_ratio: 1/1.7
+            tap_action:
+              action: more-info
+              entity: switch.phev_disable_charge_timer
+            styles:
+              grid:
+                - position: relative
+              custom_fields:
+                notification:
+                  - background-color: |
+                      [[[
+                        if (states['binary_sensor.phev_charging'].state == "on")
+                          return "green";
+                        return "red";
+                      ]]]
+                  - border-radius: 50%
+                  - position: absolute
+                  - left: 60%
+                  - top: 10%
+                  - height: 40px
+                  - width: 40px
+                  - font-size: 14px
+                  - line-height: 40px
+            custom_fields:
+              notification: >
+                [[[ return
+                Math.floor(states['sensor.phev_charge_remaining'].state) +'m']]]
+            state:
+              - value: 'on'
+                icon: mdi:power-plug
+                label: Plugged In
+              - value: 'off'
+                icon: mdi:power-plug-off
+                label: Unplugged

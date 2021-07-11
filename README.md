@@ -9,14 +9,18 @@ For further hacking, read the [protocol documentation](protocol/README.md).
 
 Tested against a MY18 vehicle.
 
+![Home Assistant Screenshot](phev-ha.png)
+
 ## Supported functionality
 
  * MQTT proxy to Phev
  * Home Assistant discovery
- * Connect to Phev and sniff messages
- * Decode raw messages from file or command line
- * Decode and replay a connection from a PCAP (Wireshark) sniff.
+ * Fetch battery, charge, door, light status
+ * Set lights and charge enable
+ * Near-instant response to commands
  * *Only tested on a MY18 Phev*
+
+Also includes some debugging utilities.
 
 ## Requirements
 
@@ -55,18 +59,26 @@ Contributions and PRs are welcome.
 
 ### Connecting to the vehicle.
 
+#### Register a mobile device with official app
+
 As the program does not (yet) support client registration, you will first need to
 register a phone/tablet to the car. Follow the [Mitsubishi instructions](https://www.mitsubishi-motors.com/en/products/outlander_phev/app/remote/)
 and register the phone app to the car. You will need the Wifi credentials provided
 with the car.
 
+#### Obtain MAC address the app uses
+
 Next, find the MAC address of the client. On your phone/table, go to Wifi settings,
 search for the car SSID and find the MAC address used. On Android this will likely
 be a randomised address. Note this address down.
 
+#### Configure Wifi client on system running mqtt2phev
+
 On your computer running the phev2mqtt tools, configure a new Wifi connection to the
 car's SSID, and it's also essential to set the Wifi adapter mac address to the client
 MAC address you noted above. Poke around online for how to do this for your system.
+
+#### Testing the tool
 
 Once connected to the car, you can sniff for messages by running *phev2mqtt client watch*.
 The phone client needs to be disconnected for this to work.
@@ -77,7 +89,8 @@ messages such as charge and AC status.
 
 The primary feature of this code is to run as a proxy between the car and
 MQTT. Registers with car status are sent to MQTT, both as raw register
-values and decoded functional values.
+values and decoded functional values. Commands sent on MQTT topics can
+be used to control certain aspects of the vehicle.
 
 Start the MQTT gateway with:
 
@@ -122,7 +135,8 @@ The following topics are subscribed to and can be used to change state on the ca
 
 The client supports [Home Assistant MQTT Discovery](https://www.home-assistant.io/docs/mqtt/discovery/) by default.
 
-After initial discovery, re-run the binary for the entities to appear.
+After initial discovery, re-run the binary for the entities to appear. You can
+search for "phev" in your entity list.
 
 You can disable this with `--ha_discovery=false` or change the discovery prefix, the default is `--ha_discovery_prefix=homeassistant`.
 

@@ -27,8 +27,8 @@ func Checksum(message []byte) byte {
 }
 
 func ValidateChecksum(message []byte) bool {
-	length := message[1] + 2
-	if len(message) < int(length) {
+	length := int(message[1]) + 2
+	if len(message) < length {
 		return false
 	}
 	wantSum := message[length-1]
