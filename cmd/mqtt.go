@@ -125,7 +125,8 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		SetUsername(mqttUsername).
 		SetPassword(mqttPassword).
 		SetAutoReconnect(true).
-		SetDefaultPublishHandler(m.handleIncomingMqtt)
+		SetDefaultPublishHandler(m.handleIncomingMqtt).
+		SetWill(m.topic("/available"), "offline", 0, true)
 
 	m.client = mqtt.NewClient(m.options)
 	if token := m.client.Connect(); token.Wait() && token.Error() != nil {
