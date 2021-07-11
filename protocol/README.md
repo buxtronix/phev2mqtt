@@ -95,7 +95,7 @@ Summary:
 | 0xf6 | Register update | client -> car | Client register change ack/set |
 | 0x5e | Init connection? | car -> client | Initialise connection? |
 | 0xe5 | Init ack? | client -> car | Ack connection init? |
-| 0x2f | ??? | car -> client | Unknown |
+| 0x2f | Keepalive request | car -> client | Sent by car to check client presence  |
 | 0xbb | Bad Xor? | car -> client | Sent when XOR value is incorrect. |
 | 0xcc | Bad Xor? | car -> client | Sent when XOR value is incorrect. |
 
@@ -203,8 +203,6 @@ Registers contain the bulk of information on the state of the vehicle.
 |0x5 | Climate timer settings | |
 |0x6 | ?? | Similar to 0x15 |
 |0x7 | ?? |  |
-|0xa | Head light state? | Write to set the head lights on |
-|0xb | Parking light state? | Write to set the parking lights on |
 |0xc | ?? |  |
 |0xd | ?? |  |
 |0xf | ?? |  |
@@ -233,8 +231,6 @@ Registers contain the bulk of information on the state of the vehicle.
 |0xc0 | ECU Version |  |
 
 ### 0x02 - Battery warning
-
-### 0x0a - Headlight status
 
 ### 0x0b - Parking light status
 
