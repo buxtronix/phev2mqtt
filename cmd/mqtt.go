@@ -22,12 +22,15 @@ import (
 	"github.com/buxtronix/phev2mqtt/client"
 	"github.com/buxtronix/phev2mqtt/protocol"
 	"github.com/spf13/cobra"
+	"os/exec"
 	"strings"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	log "github.com/sirupsen/logrus"
 )
+
+const defaultWifiRestartCmd = "sudo ip link set wlan0 down && sleep 3 && sudo ip link set wlan0 up"
 
 // mqttCmd represents the mqtt command
 var mqttCmd = &cobra.Command{
@@ -85,6 +88,35 @@ func (c *climate) ready() bool {
 	return c.mode != nil && c.state != nil
 }
 
+var lastWifiRestart time.Time
+
+func restartWifi(cmd *cobra.Command) error {
+	restartRetryTime, err := cmd.Flags().GetDuration("wifi_restart_retry_time")
+	if err != nil {
+		return err
+	}
+	if time.Now().Sub(lastWifiRestart) < restartRetryTime {
+		return nil
+	}
+	defer func() {
+		lastWifiRestart = time.Now()
+	}()
+
+	restartCommand, _ := cmd.Flags().GetString("wifi_restart_command")
+	if restartCommand == "" {
+		log.Debugf("wifi restart disabled")
+		return nil
+	}
+
+	log.Infof("Attempting to restart wifi")
+
+	restartCmd := exec.Command("sh", "-c", restartCommand)
+
+	stdoutStderr, err := restartCmd.CombinedOutput()
+	log.Infof("Output from wifi restart: %s", stdoutStderr)
+	return err
+}
+
 type mqttClient struct {
 	client         mqtt.Client
 	options        *mqtt.ClientOptions
@@ -120,6 +152,10 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	wifiRestartTime, err := cmd.Flags().GetDuration("wifi_restart_time")
+	if err != nil {
+		return err
+	}
 
 	m.options = mqtt.NewClientOptions().
 		AddBroker(mqttServer).
@@ -149,6 +185,13 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		if time.Now().Sub(m.lastConnect) > 30*time.Second {
 			m.publish("/available", "offline")
 		}
+		// Restart Wifi interface if > wifi_restart_time.
+		if time.Now().Sub(m.lastConnect) > wifiRestartTime {
+			if err := restartWifi(cmd); err != nil {
+				log.Errorf("Error restarting wifi: %v", err)
+			}
+		}
+
 		time.Sleep(time.Second)
 	}
 }
@@ -574,4 +617,7 @@ func init() {
 	mqttCmd.Flags().Bool("ha_discovery", true, "Enable Home Assistant MQTT discovery")
 	mqttCmd.Flags().String("ha_discovery_prefix", "homeassistant", "Prefix for Home Assistant MQTT discovery")
 	mqttCmd.Flags().Duration("update_interval", 5*time.Minute, "How often to request force updates")
+	mqttCmd.Flags().Duration("wifi_restart_time", 2*time.Minute, "Attempt to restart Wifi if no connection for this long")
+	mqttCmd.Flags().Duration("wifi_restart_retry_time", 2*time.Minute, "Interval to attempt Wifi restart")
+	mqttCmd.Flags().String("wifi_restart_command", defaultWifiRestartCmd, "Command to restart Wifi connection to Phev")
 }
