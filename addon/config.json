@@ -1,6 +1,6 @@
 {
   "name": "PHEV",
-  "version": "1",
+  "version": "1.1",
   "slug": "phev",
   "description": "Mitsubishi PHEV",
   "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
@@ -9,12 +9,14 @@
   "host_network": true,
   "options": {
     "mqtt_server": "localhost:1883",
-    "mqtt_user": "mqtt_username",
-    "mqtt_password": "secret_password"
+    "mqtt_user": null,
+    "mqtt_password": null,
+    "debug": false
   },
   "schema": {
     "mqtt_server": "str",
     "mqtt_user": "str",
-    "mqtt_password": "str"
+    "mqtt_password": "str",
+    "debug": "bool"
   }
 }

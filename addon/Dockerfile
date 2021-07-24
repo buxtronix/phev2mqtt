@@ -17,7 +17,7 @@ FROM $BUILD_FROM
 RUN apk update && apk add --no-cache \
 	libpcap-dev
 
-COPY --from=builder /tmp/phev2mqtt/phev2mqtt /tmp/phev2mqtt/phev2mqtt
+COPY --from=builder /tmp/phev2mqtt/phev2mqtt /opt/phev2mqtt
 
 COPY run.sh /opt
 RUN chmod a+x /opt/run.sh
