@@ -10,6 +10,8 @@ If you connect to the hassio_supervisort docker container, this will be /data/ad
 
 More information about local addons at https://developers.home-assistant.io/docs/add-ons/tutorial/
 
+If you set the debug flag on, it will just start the container and sleep indefinitely, you can then run the phev2mqtt manually, to run "phev2mqtt client watch" for example.
+
 NOTE - on 32bit Raspberry Pi there's an issue with the latest alpine docker images and old versions of libseccomp (including the ones in Raspbian repos), this will stop the Dockerfile building. In order to overcome this, you may need to manually install a newer version with
 
     wget http://ftp.us.debian.org/debian/pool/main/libs/libseccomp/libseccomp2_2.4.4-1~bpo10+1_armhf.deb

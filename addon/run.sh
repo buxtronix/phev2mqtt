@@ -13,17 +13,6 @@ then
 	sleep inf
 fi
 
-#Test to see if we can connect to the Outlander
-nc -zw 1 192.168.8.46 8080
-RC=$?
-
-if [[ $RC -ne  0 ]]
-then
-	echo Connection to Outlander unsuccessful
-	exit 1
-fi
-
-echo Connection to Outlander successful
 echo Starting phev2mqtt
 
 /opt/phev2mqtt \
