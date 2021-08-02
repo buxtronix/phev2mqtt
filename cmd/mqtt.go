@@ -36,12 +36,12 @@ const defaultWifiRestartCmd = "sudo ip link set wlan0 down && sleep 3 && sudo ip
 var mqttCmd = &cobra.Command{
 	Use:   "mqtt",
 	Short: "Start an MQTT bridge.",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Long: `Maintains a connected to the Phev (retry as needed) and also to an MQTT server.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Status data from the car is passed to the MQTT topics, and also some commands from MQTT
+are sent to control certain aspects of the car. See the phev2mqtt Github page for
+more details on the topics.
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		mc := &mqttClient{climate: new(climate)}
 		return mc.Run(cmd, args)
@@ -186,7 +186,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 			m.publish("/available", "offline")
 		}
 		// Restart Wifi interface if > wifi_restart_time.
-		if time.Now().Sub(m.lastConnect) > wifiRestartTime {
+		if wifiRestartTime > 0 && time.Now().Sub(m.lastConnect) > wifiRestartTime {
 			if err := restartWifi(cmd); err != nil {
 				log.Errorf("Error restarting wifi: %v", err)
 			}
@@ -617,7 +617,7 @@ func init() {
 	mqttCmd.Flags().Bool("ha_discovery", true, "Enable Home Assistant MQTT discovery")
 	mqttCmd.Flags().String("ha_discovery_prefix", "homeassistant", "Prefix for Home Assistant MQTT discovery")
 	mqttCmd.Flags().Duration("update_interval", 5*time.Minute, "How often to request force updates")
-	mqttCmd.Flags().Duration("wifi_restart_time", 2*time.Minute, "Attempt to restart Wifi if no connection for this long")
+	mqttCmd.Flags().Duration("wifi_restart_time", 0, "Attempt to restart Wifi if no connection for this long")
 	mqttCmd.Flags().Duration("wifi_restart_retry_time", 2*time.Minute, "Interval to attempt Wifi restart")
 	mqttCmd.Flags().String("wifi_restart_command", defaultWifiRestartCmd, "Command to restart Wifi connection to Phev")
 }
