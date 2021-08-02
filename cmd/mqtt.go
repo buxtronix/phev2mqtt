@@ -22,6 +22,7 @@ import (
 	"github.com/buxtronix/phev2mqtt/client"
 	"github.com/buxtronix/phev2mqtt/protocol"
 	"github.com/spf13/cobra"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -29,16 +30,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const defaultWifiRestartCmd = "sudo ip link set wlan0 down && sleep 3 && sudo ip link set wlan0 up"
+
 // mqttCmd represents the mqtt command
 var mqttCmd = &cobra.Command{
 	Use:   "mqtt",
 	Short: "Start an MQTT bridge.",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Long: `Maintains a connected to the Phev (retry as needed) and also to an MQTT server.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Status data from the car is passed to the MQTT topics, and also some commands from MQTT
+are sent to control certain aspects of the car. See the phev2mqtt Github page for
+more details on the topics.
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		mc := &mqttClient{climate: new(climate)}
 		return mc.Run(cmd, args)
@@ -64,10 +67,12 @@ func (c *climate) mqttStates() map[string]string {
 		"/climate/cool":       "off",
 		"/climate/heat":       "off",
 		"/climate/windscreen": "off",
+		"/climate/mode":       "off",
 	}
 	if !c.ready() || !*c.state {
 		return m
 	}
+	m["/climate/mode"] = *c.mode
 	switch *c.mode {
 	case "cool":
 		m["/climate/cool"] = "on"
@@ -81,6 +86,35 @@ func (c *climate) mqttStates() map[string]string {
 
 func (c *climate) ready() bool {
 	return c.mode != nil && c.state != nil
+}
+
+var lastWifiRestart time.Time
+
+func restartWifi(cmd *cobra.Command) error {
+	restartRetryTime, err := cmd.Flags().GetDuration("wifi_restart_retry_time")
+	if err != nil {
+		return err
+	}
+	if time.Now().Sub(lastWifiRestart) < restartRetryTime {
+		return nil
+	}
+	defer func() {
+		lastWifiRestart = time.Now()
+	}()
+
+	restartCommand, _ := cmd.Flags().GetString("wifi_restart_command")
+	if restartCommand == "" {
+		log.Debugf("wifi restart disabled")
+		return nil
+	}
+
+	log.Infof("Attempting to restart wifi")
+
+	restartCmd := exec.Command("sh", "-c", restartCommand)
+
+	stdoutStderr, err := restartCmd.CombinedOutput()
+	log.Infof("Output from wifi restart: %s", stdoutStderr)
+	return err
 }
 
 type mqttClient struct {
@@ -118,6 +152,10 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	wifiRestartTime, err := cmd.Flags().GetDuration("wifi_restart_time")
+	if err != nil {
+		return err
+	}
 
 	m.options = mqtt.NewClientOptions().
 		AddBroker(mqttServer).
@@ -147,6 +185,13 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		if time.Now().Sub(m.lastConnect) > 30*time.Second {
 			m.publish("/available", "offline")
 		}
+		// Restart Wifi interface if > wifi_restart_time.
+		if wifiRestartTime > 0 && time.Now().Sub(m.lastConnect) > wifiRestartTime {
+			if err := restartWifi(cmd); err != nil {
+				log.Errorf("Error restarting wifi: %v", err)
+			}
+		}
+
 		time.Sleep(time.Second)
 	}
 }
@@ -207,21 +252,28 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	} else if strings.HasPrefix(msg.Topic(), m.topic("/set/climate/")) {
-		modeMap := map[string]byte{"off": 0x0, "OFF": 0x0, "cool": 0x1, "heat": 0x2, "windscreen": 0x3}
+		topic := msg.Topic()
+		payload := strings.ToLower(string(msg.Payload()))
+
+		modeMap := map[string]byte{"off": 0x0, "OFF": 0x0, "cool": 0x1, "heat": 0x2, "windscreen": 0x3, "mode": 0x4}
 		durMap := map[string]byte{"10": 0x0, "20": 0x10, "30": 0x20, "on": 0x0, "off": 0x0}
-		parts := strings.Split(msg.Topic(), "/")
+		parts := strings.Split(topic, "/")
 		state := byte(0x02) // initial.
 		mode, ok := modeMap[parts[len(parts)-1]]
 		if !ok {
 			log.Errorf("Unknown climate mode: %s", parts[len(parts)-1])
 			return
 		}
-		if strings.ToLower(string(msg.Payload())) == "off" {
+		if mode == 0x4 { // set/climate/mode -> "heat"
+			mode = modeMap[payload]
+			payload = "on"
+		}
+		if payload == "off" {
 			mode = 0x0
 		}
-		duration, ok := durMap[string(msg.Payload())]
+		duration, ok := durMap[payload]
 		if mode != 0x0 && !ok {
-			log.Errorf("Unknown climate duration: %s", msg.Payload())
+			log.Errorf("Unknown climate duration: %s", payload)
 			return
 		}
 		if mode == 0x0 {
@@ -252,7 +304,9 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 		return err
 	}
 	m.publish("/available", "online")
-	m.lastConnect = time.Now()
+	defer func() {
+		m.lastConnect = time.Now()
+	}()
 
 	var encodingErrorCount = 0
 	var lastEncodingError time.Time
@@ -321,13 +375,11 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		for t, p := range m.climate.mqttStates() {
 			m.publish(t, p)
 		}
-		m.publish("/climate/mode", reg.Mode)
 	case *protocol.RegisterACOperStatus:
 		m.climate.setState(reg.Operating)
 		for t, p := range m.climate.mqttStates() {
 			m.publish(t, p)
 		}
-		m.publish("/climate/state", boolOnOff[reg.Operating])
 	case *protocol.RegisterChargeStatus:
 		m.publish("/charge/charging", boolOnOff[reg.Charging])
 		m.publish("/charge/remaining", fmt.Sprintf("%d", reg.Remaining))
@@ -500,6 +552,15 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		"unique_id": "__VIN___climate_windscreen",
 		"icon": "mdi:car-defrost-front",
 		"~": "__TOPIC__"}`,
+		"%s/select/%s_climate_on/config": `{
+				"name": "__NAME__ climate state",
+				"state_topic": "~/climate/mode",
+				"command_topic": "~/set/climate/mode",
+				"options": [ "off", "heat", "cool", "windscreen"],
+				"avty_t": "~/available",
+				"unique_id": "__VIN___climate_on",
+				"icon": "mdi:car-seat-heater",
+				"~": "__TOPIC__"}`,
 		// Lights.
 		"%s/light/%s_parkinglights/config": `{
 		"name": "__NAME__ Park Lights",
@@ -556,4 +617,7 @@ func init() {
 	mqttCmd.Flags().Bool("ha_discovery", true, "Enable Home Assistant MQTT discovery")
 	mqttCmd.Flags().String("ha_discovery_prefix", "homeassistant", "Prefix for Home Assistant MQTT discovery")
 	mqttCmd.Flags().Duration("update_interval", 5*time.Minute, "How often to request force updates")
+	mqttCmd.Flags().Duration("wifi_restart_time", 0, "Attempt to restart Wifi if no connection for this long")
+	mqttCmd.Flags().Duration("wifi_restart_retry_time", 2*time.Minute, "Interval to attempt Wifi restart")
+	mqttCmd.Flags().String("wifi_restart_command", defaultWifiRestartCmd, "Command to restart Wifi connection to Phev")
 }
