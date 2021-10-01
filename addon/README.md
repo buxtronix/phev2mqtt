@@ -1,6 +1,7 @@
-This requires that the local wifi is already connected to the Outlander, you should be able to check this by ensuring that you have a 192.168.8.x IP address
+This requires that Home Assistant is already connected to the Outlander, you should be able to check this by ensuring that you can ping 192.168.8.46
 
-Once installed as a local addon, you can configure the mqtt target and username/password and then start and stop phev2mqtt from the GUI
+Once installed as a local addon, you must configure the mqtt target and username/password before start and stop phev2mqtt from the GUI
+For my docker install the host machine's address (which is also running the mqtt addon) is 172.30.32.1:1883 (I suspect this could be different depending on install)
 
 These files need to go in a directory (called phev for example) in the local addons.
 

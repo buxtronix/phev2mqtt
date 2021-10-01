@@ -1,3 +1,6 @@
+# Version 1.3
+* Removed host networking as it wasn't required
+
 # Version 1.2
 * Removed fatal error if Outlander is not available
 
