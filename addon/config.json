@@ -1,10 +1,10 @@
 {
   "name": "PHEV",
-  "version": "1.3",
+  "version": "1.4",
   "slug": "phev",
   "description": "Mitsubishi PHEV",
   "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
-  "startup": "before",
+  "startup": "application",
   "boot": "auto",
   "options": {
     "mqtt_server": null,

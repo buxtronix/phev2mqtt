@@ -1,3 +1,6 @@
+# Version 1.4
+* Changed "startup": "before" to "startup": "application" as "before" no longer supported and it should really start after Home Assistant
+
 # Version 1.3
 * Removed host networking as it wasn't required
 
