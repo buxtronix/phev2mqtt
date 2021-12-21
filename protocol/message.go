@@ -15,8 +15,8 @@ const (
 	CmdInMy18StartReq   = 0x5e
 	CmdOutMy18StartResp = 0xe5
 
-	CmdInUnkn1  = 0x4e
-	CmdOutUnkn1 = 0xe4
+	CmdInMy14StartReq  = 0x4e
+	CmdOutMy14StartResp = 0xe4
 
 	CmdInBadEncoding = 0xbb
 	CmdInUnkn3       = 0xcc
@@ -46,6 +46,8 @@ var messageStr = map[byte]string{
 	0x5e: "StartReq18",
 	0xf2: "StartSend",
 	0x2f: "StartResp",
+	0xe4: "StartResp14",
+	0x4e: "StartReq14",
 }
 
 type PhevMessage struct {
@@ -91,6 +93,12 @@ func (p *PhevMessage) ShortForm() string {
 
 	case CmdOutMy18StartResp:
 		return fmt.Sprintf("START SEND    (orig %s)", hex.EncodeToString(p.Original))
+		
+	case CmdInMy14StartReq:
+		return fmt.Sprintf("START RECV 14 (orig %s)", hex.EncodeToString(p.Original))
+
+	case CmdOutMy14StartResp:
+		return fmt.Sprintf("START SEND 14 (orig %s)", hex.EncodeToString(p.Original))
 
 	case CmdInBadEncoding:
 		return fmt.Sprintf("BAD ENCODING  (exp: 0x%02x)", p.Data[0])

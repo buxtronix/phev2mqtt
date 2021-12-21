@@ -485,6 +485,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		"device_class": "battery",
 		"name": "__NAME__ Battery",
 		"state_topic": "~/battery/level",
+		"state_class": "measurement",
+		"unit_of_measurement": "%",
 		"avty_t": "~/available",
 		"unique_id": "__VIN___battery_level",
 		"~": "__TOPIC__"}`,
