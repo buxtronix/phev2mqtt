@@ -234,6 +234,8 @@ func (c *Client) manage() {
 				Xor:      m.Xor,
 				Data:     []byte{0x0},
 			}
+			log.Debug("%%PHEV_START18_RECV%%")
+			c.started <- struct{}{}
 		case protocol.CmdInMy14StartReq:
 			c.Send <- &protocol.PhevMessage{
 				Type:     protocol.CmdOutMy14StartResp,
@@ -242,7 +244,7 @@ func (c *Client) manage() {
 				Xor:      m.Xor,
 				Data:     []byte{0x0},
 			}
-			log.Debug("%%PHEV_START_RECV%%")
+			log.Debug("%%PHEV_START14_RECV%%")
 			c.started <- struct{}{}
 		}
 	}
