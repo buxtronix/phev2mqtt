@@ -357,9 +357,8 @@ type RegisterDoorStatus struct {
 	// Locked is true if the vehicle is locked.
 	Locked bool
 	// The below are true if the corresponding door is open.
-	Driver, FrontPassenger bool
-	RearLeft, RearRight    bool
-	Bonnet, Boot           bool
+	Driver, FrontPassenger, RearLeft, RearRight bool
+	Bonnet, Boot                                bool
 	// Headlight state is in this register!
 	Headlights bool
 	raw        []byte
