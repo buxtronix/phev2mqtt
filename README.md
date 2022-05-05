@@ -140,6 +140,82 @@ search for "phev" in your entity list.
 
 You can disable this with `--ha_discovery=false` or change the discovery prefix, the default is `--ha_discovery_prefix=homeassistant`.
 
+#### Raspbian setup with auto-start
+
+It's useful to have the tool auto-start when running on e.g a Raspberry Pi. The following
+describes how to set this up.
+
+- Edit or add to `/etc/systemd/network/00-default.link` with the following:
+
+```
+[Match]
+# This should be the 'real' (default) mac address of the Pi's wireless interface.
+MACAddress=b8:27:eb:50:c0:52
+
+[Link]
+# This should be the MAC address to use to connect to the car, per above.
+MACAddress=ee:4d:ec:de:7a:91
+NamePolicy=kernel database onboard slot path
+
+```
+
+- Add the car's Wifi info to `/etc/wpa_supplicant/wpa_supplicant.conf`:
+
+```
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=AU
+
+network={
+	ssid="REMOTE45bhds"
+	scan_ssid=1
+	psk="blahblahbla12314"
+}
+
+```
+
+- Add the following to `/etc/systemd/system/phev2mqtt.service`, updating the MQTT address to
+suit your setup:
+
+```
+[Unit]
+Description=phev2mqtt service script
+StartLimitIntervalSec=5
+After=syslog.target network.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/phev2mqtt --config=/dev/null client mqtt --mqtt_server tcp://192.168.0.88:1883 -v=debug
+
+# Restart script if stopped
+Restart=always
+# Wait 30s before restart
+RestartSec=30s
+
+# Tag things in the log
+# View with: sudo journalctl -f -u phev2mqtt -o cat
+SyslogIdentifier=phev2mqtt
+
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- Copy the `phev2mqtt` binary to /usr/local/bin and make sure it's executable.
+
+- Start the service with `sudo systemctl start phev2mqtt.service`
+
+- Enable the service to run at boot, with `sudo systemctl enable phev2mqtt.service`.
+
+- Restart the Pi and verify that it can connect to the car. Also run `ifconfig` and check
+that the `wlan0` interface has the correct mac address. You should also see this interface
+have the IP address `192.168.8.47`.
+
+- Verify that the phev2mqtt service is communicating with the car, by checking
+the logs: `sudo journalctl -f -u phev2mqtt -o cat`
+
 ### Sniffing the official client
 
 Further development of this library can be done with a packet dump of the official
