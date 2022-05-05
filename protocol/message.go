@@ -15,7 +15,7 @@ const (
 	CmdInMy18StartReq   = 0x5e
 	CmdOutMy18StartResp = 0xe5
 
-	CmdInMy14StartReq  = 0x4e
+	CmdInMy14StartReq   = 0x4e
 	CmdOutMy14StartResp = 0xe4
 
 	CmdInBadEncoding = 0xbb
@@ -93,7 +93,7 @@ func (p *PhevMessage) ShortForm() string {
 
 	case CmdOutMy18StartResp:
 		return fmt.Sprintf("START SEND    (orig %s)", hex.EncodeToString(p.Original))
-		
+
 	case CmdInMy14StartReq:
 		return fmt.Sprintf("START RECV 14 (orig %s)", hex.EncodeToString(p.Original))
 
@@ -357,8 +357,9 @@ type RegisterDoorStatus struct {
 	// Locked is true if the vehicle is locked.
 	Locked bool
 	// The below are true if the corresponding door is open.
-	FrontLeft, FrontRight, RearLeft, RearRight bool
-	Bonnet, Boot                               bool
+	Driver, FrontPassenger bool
+	RearLeft, RearRight    bool
+	Bonnet, Boot           bool
 	// Headlight state is in this register!
 	Headlights bool
 	raw        []byte
@@ -369,8 +370,8 @@ func (r *RegisterDoorStatus) Decode(m *PhevMessage) {
 		return
 	}
 	r.Locked = m.Data[0] == 0x1
-	r.FrontRight = m.Data[3] == 0x1
-	r.FrontLeft = m.Data[4] == 0x1
+	r.Driver = m.Data[3] == 0x1
+	r.FrontPassenger = m.Data[4] == 0x1
 	r.RearRight = m.Data[5] == 0x1
 	r.RearLeft = m.Data[6] == 0x1
 	r.Boot = m.Data[7] == 0x1
@@ -385,14 +386,14 @@ func (r *RegisterDoorStatus) Raw() string {
 
 func (r *RegisterDoorStatus) String() string {
 	openStr := ""
-	if r.FrontRight || r.FrontLeft || r.RearRight || r.RearLeft || r.Boot || r.Bonnet {
+	if r.FrontPassenger || r.Driver || r.RearRight || r.RearLeft || r.Boot || r.Bonnet {
 
 		openStr = " Open:"
-		if r.FrontRight {
-			openStr += " front_right"
+		if r.Driver {
+			openStr += " driver"
 		}
-		if r.FrontLeft {
-			openStr += " front_left"
+		if r.FrontPassenger {
+			openStr += " front_passenger"
 		}
 		if r.RearRight {
 			openStr += " rear_right"

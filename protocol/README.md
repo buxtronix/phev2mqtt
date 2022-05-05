@@ -322,9 +322,9 @@ the value is 1 if open, else 0.
 
 0 - Lock status [1=locked 2=unlocked]
 
-3 - Front Right Door
+3 - Drivers Door (side depends if LHD/RHD)
 
-4 - Front Left Door
+4 - Front Passenger Door (side depends if LHD/RHD)
 
 5 - Read Right Door
 

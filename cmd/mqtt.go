@@ -387,8 +387,10 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		m.publish("/door/locked", boolOpen[!reg.Locked])
 		m.publish("/door/rear_left", boolOpen[reg.RearLeft])
 		m.publish("/door/rear_right", boolOpen[reg.RearRight])
-		m.publish("/door/front_right", boolOpen[reg.FrontRight])
-		m.publish("/door/front_left", boolOpen[reg.FrontLeft])
+		m.publish("/door/front_right", boolOpen[reg.Driver])
+		m.publish("/door/driver", boolOpen[reg.Driver])
+		m.publish("/door/front_left", boolOpen[reg.FrontPassenger])
+		m.publish("/door/front_passenger", boolOpen[reg.FrontPassenger])
 		m.publish("/door/bonnet", boolOpen[reg.Bonnet])
 		m.publish("/door/boot", boolOpen[reg.Boot])
 		m.publish("/lights/head", boolOnOff[reg.Headlights])
@@ -443,23 +445,23 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		"avty_t": "~/available",
 		"unique_id": "__VIN___door_boot",
 		"~": "__TOPIC__"}`,
-		"%s/binary_sensor/%s_door_front_left/config": `{
+		"%s/binary_sensor/%s_door_front_passenger/config": `{
 		"device_class": "door",
-		"name": "__NAME__ Front Left Door",
-		"state_topic": "~/door/front_left",
+		"name": "__NAME__ Front Passenger Door",
+		"state_topic": "~/door/front_passenger",
 		"payload_off": "closed",
 		"payload_on": "open",
 		"avty_t": "~/available",
-		"unique_id": "__VIN___door_front_left",
+		"unique_id": "__VIN___door_front_passenger",
 		"~": "__TOPIC__"}`,
-		"%s/binary_sensor/%s_door_front_right/config": `{
+		"%s/binary_sensor/%s_door_driver/config": `{
 		"device_class": "door",
-		"name": "__NAME__ Front Right Door",
-		"state_topic": "~/door/front_right",
+		"name": "__NAME__ Driver Door",
+		"state_topic": "~/door/driver",
 		"payload_off": "closed",
 		"payload_on": "open",
 		"avty_t": "~/available",
-		"unique_id": "__VIN___door_front_right",
+		"unique_id": "__VIN___door_driver",
 		"~": "__TOPIC__"}`,
 		"%s/binary_sensor/%s_door_rear_left/config": `{
 		"device_class": "door",

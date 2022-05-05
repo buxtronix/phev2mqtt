@@ -110,8 +110,10 @@ The following topics are published:
 | phev/charge/plug | If the charging plug is *unplugged* or *connected*. |
 | phev/charge/remaining | Minutes left, if charging. |
 | phev/door/locked | Whether the car is locked. *on* or *off* |
-| phev/door/front_left | State of doors. *closed* or *open* |
-| phev/door/front_right | State of doors. *closed* or *open* |
+| ~~phev/door/front_left~~ | State of doors. *closed* or *open* |
+| ~~phev/door/front_right~~ | State of doors. *closed* or *open* |
+| phev/door/front_passenger | State of doors. *closed* or *open* |
+| phev/door/driver | State of doors. *closed* or *open* |
 | phev/door/rear_left | State of doors. *closed* or *open* |
 | phev/door/rear_right | State of doors. *closed* or *open* |
 | phev/door/bonnet | State of doors. *closed* or *open* |
