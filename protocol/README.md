@@ -194,41 +194,53 @@ Registers contain the bulk of information on the state of the vehicle.
 
 ### Read registers (car to client)
 
-| Register | Name | Description |
-|--|--|--|
-|0x1 | ?? |  |
-|0x2 | Battery warning |  |
-|0x3 | ?? |  |
-|0x4 | Charge timer settings |  |
-|0x5 | Climate timer settings | |
-|0x6 | ?? | Similar to 0x15 |
-|0x7 | ?? |  |
-|0xc | ?? |  |
-|0xd | ?? |  |
-|0xf | ?? |  |
-|0x10 | AirCon State |  |
-|0x11 | ?? |  |
-|0x12 | TimeSync |  |
-|0x14 | ?? |  |
-|0x15 | VIN |  |
-|0x16 | ?? | Seems to convey some other settings |
-|0x1a | ?? |  |
-|0x1b | ?? |  |
-|0x1c | AirCon Mode |  |
-|0x1d | Battery Level / light status|  |
-|0x1e | Charge plug status |  |
-|0x1f | Charge State |  |
-|0x21 | ?? |  |
-|0x22 | ?? |  |
-|0x23 | ?? | Maybe AC related  |
-|0x24 | Door Lock Status |  |
-|0x25 | ?? |  |
-|0x26 | ?? |  |
-|0x27 | ?? |  |
-|0x28 | ?? |  |
-|0x29 | ?? |  |
-|0x2c | ?? |  |
-|0xc0 | ECU Version |  |
+| Register | Name | Length | Description |
+|--|--|--|--|
+|0x1 | ?? | 2 |  |
+|0x2 | Battery warning | 4 |  |
+|0x3 | ?? | 3 |  |
+|0x4 | Charge timer settings | 20 |  |
+|0x5 | Climate timer settings | 16 |  |
+|0x6 | ?? | 20 | Similar to 0x15 |
+|0x7 | ?? | 1 |  |
+|0x8 | ?? | 1 |  |
+|0x9 | ?? | 1 |  |
+|0xa | ?? | 1 |  |
+|0xb | ?? | 1 |  |
+|0xc | ?? | 1 |  |
+|0xd | ?? | 1 |  |
+|0xe | ?? | 1 |  |
+|0xf | ?? | 1 |  |
+|0x10 | AirCon State | 3 |  |
+|0x11 | ?? | 1 |  |
+|0x12 | TimeSync | 7 |  |
+|0x13 | ?? | 1 |  |
+|0x14 | ?? | 7 |  |
+|0x15 | VIN | 20 |  |
+|0x16 | ?? | 8 | Seems to convey some other settings |
+|0x17 | ?? | 1 |  |
+|0x18 | ?? | 4 |  |
+|0x19 | ?? | 9 |  |
+|0x1a | ?? | 5 |  |
+|0x1b | ?? | 1 |  |
+|0x1c | AirCon Mode | 1 |  |
+|0x1d | Battery Level / light status| 4 |  |
+|0x1e | Charge plug status | 2 |  |
+|0x1f | Charge State | 3 |  |
+|0x20 | ?? | 10 |  |
+|0x21 | ?? | 1 |  |
+|0x22 | ?? | 6 |  |
+|0x23 | ?? | 5 | Maybe AC related  |
+|0x24 | Door Lock Status | 10 |  |
+|0x25 | ?? | 3 |  |
+|0x26 | ?? | 1 |  |
+|0x27 | ?? | 1 |  |
+|0x28 | ?? | 32 |  |
+|0x29 | ?? | 3 |  |
+|0x2a | ?? | 1 |  |
+|0x2b | ?? | 10 |  |
+|0x2c | ?? | 1 |  |
+|0xc0 | ECU Version | 13 |  |
 
 ### 0x02 - Battery warning
 
