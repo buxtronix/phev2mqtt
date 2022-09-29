@@ -87,17 +87,17 @@ the expected Xor value. Just re-send the packet with this provided Xor.
 
 Summary:
 
-| Value | Name | Direction| Description |
-|------|-----|---|--|
-| 0xf3 | Ping Request | client -> car | Ping/Keepalive request |
-| 0x3f | Ping response| car -> client | Ping / Keepalive response |
-| 0x6f | Register changed | car -> client | Notify a register has been updated |
-| 0xf6 | Register update | client -> car | Client register change ack/set |
-| 0x5e | Init connection? | car -> client | Initialise connection? |
-| 0xe5 | Init ack? | client -> car | Ack connection init? |
-| 0x2f | Keepalive request | car -> client | Sent by car to check client presence  |
-| 0xbb | Bad Xor? | car -> client | Sent when XOR value is incorrect. |
-| 0xcc | Bad Xor? | car -> client | Sent when XOR value is incorrect. |
+| Value | Name              | Direction     | Description                          |
+|-------|-------------------|---------------|--------------------------------------|
+|  0xf3 | Ping Request      | client -> car | Ping/Keepalive request               |
+|  0x3f | Ping response     | car -> client | Ping / Keepalive response            |
+|  0x6f | Register changed  | car -> client | Notify a register has been updated   |
+|  0xf6 | Register update   | client -> car | Client register change ack/set       |
+|  0x5e | Init connection?  | car -> client | Initialise connection?               |
+|  0xe5 | Init ack?         | client -> car | Ack connection init?                 |
+|  0x2f | Keepalive request | car -> client | Sent by car to check client presence |
+|  0xbb | Bad Xor?          | car -> client | Sent when XOR value is incorrect.    |
+|  0xcc | Bad Xor?          | car -> client | Sent when XOR value is incorrect.    |
 
 ### Ping request (0xf3)
 
@@ -196,53 +196,53 @@ Registers contain the bulk of information on the state of the vehicle.
 
 There seem to be two types of register layout (A/B).
 
-| Register | Name | Length (type A/B) | Memory location (A/B) | Fields (A/B) | Description |
-|--|--|--|--|--|--|
-|0x1 | ?? | 2 | 0 | [1,1] |  |
-|0x2 | Battery warning | 4 | 2 | [1,1,1,1] |  |
-|0x3 | ?? | 3 | 6 | [1,1,1] |  |
-|0x4 | Charge timer settings | 20 / 1 | 10 / unknown | [3,1,3,1,3,1,3,1,3,1] / [] |  |
-|0x5 | Climate timer settings | 16 / 1 | 30 / 235 | [1,2,1,2,1,2,1,2,1,2,1] / [1] |  |
-|0x6 | ?? | 20 / 1 | 74 / 46 | [1,17,1,1] / [1] | Similar to 0x15 |
-|0x7 | ?? | 1 | 237 | [1] |  |
-|0x8 | ?? | 1 | 234 | [1] |  |
-|0x9 | ?? | 1 | 49 | [1] |  |
-|0xa | ?? | 1 | 50 | [1] |  |
-|0xb | ?? | 1 | 238 / 236 | [1] |  |
-|0xc | ?? | 1 | 51 | [1] |  |
-|0xd | ?? | 1 | 52 | [1] |  |
-|0xe | ?? | 1 | 53 | [1] |  |
-|0xf | ?? | 1 | 54 | [1] |  |
-|0x10 | AirCon State | 3 / 1 | 55 | [1,1,1] / [1] |  |
-|0x11 | ?? | 1 | 58 | [1] |  |
-|0x12 | TimeSync | 7 | 59 | [7] |  |
-|0x13 | ?? | 1 | 66 | [1] |  |
-|0x14 | ?? | 7 | 67 | [6,1] |  |
-|0x15 | VIN | 20 | 246 / 74 | [19,11] / [1,17,1,1] |  |
-|0x16 | ?? | 8 | 95 | [8] | Seems to convey some other settings |
-|0x17 | ?? | 1 | 103 | [1] |  |
-|0x18 | ?? | 4 / 16 | 276 / 104 | [1,1,2] / [5,3,5,3] |  |
-|0x19 | ?? | 9 | 120 | [1,5,3] |  |
-|0x1a | ?? | 5 / 2 | 129 | [1,1,1,1,1] / [1,1] |  |
-|0x1b | ?? | 1 | 134 | [1] |  |
-|0x1c | AirCon Mode | 1 | 136 | [1] |  |
-|0x1d | Battery Level / light status| 4 | 137 | [1,1,1,1] |  |
-|0x1e | Charge plug status | 2 | 141 | [1,1] |  |
-|0x1f | Charge State | 3 | 143 | [1,2] |  |
-|0x20 | ?? | 10 | 146 | [2,2,2,2,2] |  |
-|0x21 | ?? | 1 | 156 | [1] |  |
-|0x22 | ?? | 6 | 157 | [2,2,2] |  |
-|0x23 | ?? | 5 | 163 | [1,1,1,1,1] | Maybe AC related  |
-|0x24 | Door Lock Status | 10 | 168 | [1,1,1,1,1,1,1,1,1,1] |  |
-|0x25 | ?? | 3 | 178 | [1,1,1] |  |
-|0x26 | ?? | 1 | 181 | [1] |  |
-|0x27 | ?? | 1 | 182 | [1] |  |
-|0x28 | ?? | 32 | 183 | [33] |  |
-|0x29 | ?? | 3 / 2 | 216 | [1,1,1] / [1,1] |  |
-|0x2a | ?? | 1 | 219 | [1] |  |
-|0x2b | ?? | 10 | 220 | [10] |  |
-|0x2c | ?? | 1 | 233 | [1] |  |
-|0xc0 | ECU Version | 13 | 220 | [10,2,1] |  |
+| Register | Name                         | Length | Location  | Fields                        | Description                         |
+|----------|------------------------------|--------|-----------|-------------------------------|-------------------------------------|
+|0x1       | ??                           | 2      | 0         | [1,1]                         |                                     |
+|0x2       | Battery warning              | 4      | 2         | [1,1,1,1]                     |                                     |
+|0x3       | ??                           | 3      | 6         | [1,1,1]                       |                                     |
+|0x4       | Charge timer settings        | 20 / 1 | 10 / ??   | [3,1,3,1,3,1,3,1,3,1] / []    |                                     |
+|0x5       | Climate timer settings       | 16 / 1 | 30 / 235  | [1,2,1,2,1,2,1,2,1,2,1] / [1] |                                     |
+|0x6       | ??                           | 20 / 1 | 74 / 46   | [1,17,1,1] / [1]              | Similar to 0x15                     |
+|0x7       | ??                           | 1      | 237       | [1]                           |                                     |
+|0x8       | ??                           | 1      | 234       | [1]                           |                                     |
+|0x9       | ??                           | 1      | 49        | [1]                           |                                     |
+|0xa       | ??                           | 1      | 50        | [1]                           |                                     |
+|0xb       | ??                           | 1      | 238 / 236 | [1]                           |                                     |
+|0xc       | ??                           | 1      | 51        | [1]                           |                                     |
+|0xd       | ??                           | 1      | 52        | [1]                           |                                     |
+|0xe       | ??                           | 1      | 53        | [1]                           |                                     |
+|0xf       | ??                           | 1      | 54        | [1]                           |                                     |
+|0x10      | AirCon State                 | 3 / 1  | 55        | [1,1,1] / [1]                 |                                     |
+|0x11      | ??                           | 1      | 58        | [1]                           |                                     |
+|0x12      | TimeSync                     | 7      | 59        | [7]                           |                                     |
+|0x13      | ??                           | 1      | 66        | [1]                           |                                     |
+|0x14      | ??                           | 7      | 67        | [6,1]                         |                                     |
+|0x15      | VIN                          | 20     | 246 / 74  | [19,11] / [1,17,1,1]          |                                     |
+|0x16      | ??                           | 8      | 95        | [8]                           | Seems to convey some other settings |
+|0x17      | ??                           | 1      | 103       | [1]                           |                                     |
+|0x18      | ??                           | 4 / 16 | 276 / 104 | [1,1,2] / [5,3,5,3]           |                                     |
+|0x19      | ??                           | 9      | 120       | [1,5,3]                       |                                     |
+|0x1a      | ??                           | 5 / 2  | 129       | [1,1,1,1,1] / [1,1]           |                                     |
+|0x1b      | ??                           | 1      | 134       | [1]                           |                                     |
+|0x1c      | AirCon Mode                  | 1      | 136       | [1]                           |                                     |
+|0x1d      | Battery Level / light status | 4      | 137       | [1,1,1,1]                     |                                     |
+|0x1e      | Charge plug status           | 2      | 141       | [1,1]                         |                                     |
+|0x1f      | Charge State                 | 3      | 143       | [1,2]                         |                                     |
+|0x20      | ??                           | 10     | 146       | [2,2,2,2,2]                   |                                     |
+|0x21      | ??                           | 1      | 156       | [1]                           |                                     |
+|0x22      | ??                           | 6      | 157       | [2,2,2]                       |                                     |
+|0x23      | ??                           | 5      | 163       | [1,1,1,1,1]                   | Maybe AC related                    |
+|0x24      | Door Lock Status             | 10     | 168       | [1,1,1,1,1,1,1,1,1,1]         |                                     |
+|0x25      | ??                           | 3      | 178       | [1,1,1]                       |                                     |
+|0x26      | ??                           | 1      | 181       | [1]                           |                                     |
+|0x27      | ??                           | 1      | 182       | [1]                           |                                     |
+|0x28      | ??                           | 32     | 183       | [33]                          |                                     |
+|0x29      | ??                           | 3 / 2  | 216       | [1,1,1] / [1,1]               |                                     |
+|0x2a      | ??                           | 1      | 219       | [1]                           |                                     |
+|0x2b      | ??                           | 10     | 220       | [10]                          |                                     |
+|0x2c      | ??                           | 1      | 233       | [1]                           |                                     |
+|0xc0      | ECU Version                  | 13     | 220       | [10,2,1]                      |                                     |
 
 ### 0x02 - Battery warning
 
