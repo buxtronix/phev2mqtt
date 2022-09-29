@@ -196,7 +196,7 @@ Registers contain the bulk of information on the state of the vehicle.
 
 There seem to be two types of register layout (A/B).
 
-| Register | Name | Length (type A / B) | Memory location (A / B) | Fields | Description |
+| Register | Name | Length (type A/B) | Memory location (A/B) | Fields (A/B) | Description |
 |--|--|--|--|--|--|
 |0x1 | ?? | 2 | 0 | [1,1] |  |
 |0x2 | Battery warning | 4 | 2 | [1,1,1,1] |  |
