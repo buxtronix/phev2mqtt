@@ -15,11 +15,11 @@ car itself is 192.168.8.46.
 The client communicates to the car's address over TCP port 8080. Within the
 TCP connection, binary packets are used to exchange data.
 
-## Packet format.
+## Packet format
 
 Each packet has the following format:
 
-```
+```text
 |  1 byte   | 1 byte   | 1 byte | n bytes ... |   1 byte     |
 |   [Type]    [Length]    [Ack]       [Data]     [Checksum]  |
 ```
@@ -89,7 +89,7 @@ Summary:
 
 | Value | Name | Direction| Description |
 |------|-----|---|--|
-| 0xf3 | Ping Request | client -> car | Ping/Keepalive request | 
+| 0xf3 | Ping Request | client -> car | Ping/Keepalive request |
 | 0x3f | Ping response| car -> client | Ping / Keepalive response |
 | 0x6f | Register changed | car -> client | Notify a register has been updated |
 | 0xf6 | Register update | client -> car | Client register change ack/set |
@@ -103,7 +103,7 @@ Summary:
 
 Format:
 
-```
+```text
 [f3][04][00][<seq>][00][<cksum>]
 ```
 
@@ -111,11 +111,11 @@ Seems to be a keepalive sent to the car from the client. The initial XOR seems t
 until a 0x5e packet is received from the car. The `<seq>` increments up to 0x63 then
 overflows back to 0x0.
 
-
 ### Ping response (03f)
+
 Format:
 
-```
+```text
 [f3][04][01][<seq>][00][<cksum>]
 ```
 
@@ -123,11 +123,11 @@ Response to a 0xf3 packet, sent from the car to the client. The `<seq>` matches 
 request, though the XOR seems to be chosen by the car and future register update packets
 match this XOR until another ping exchange.
 
-
 ### Register changed (0x6f)
+
 Format:
 
-```
+```text
 [6f][<len>][<ack>][<register>][<data>][<cksum>]
 ```
 
@@ -142,10 +142,9 @@ The `<data>` is variable length and dependent on the specific register.
 
 Registers are described below.
 
-
 ### Register update/ack (0xf6)
 
-```
+```text
 [f6][<len>][<ack>][<register>][<data>][<cksum>]
 ```
 
@@ -155,9 +154,9 @@ If `<ack>` is zero, indicates that a register value is to be changed. The `<regi
 
 If `<ack>` is one, is a response to an update (above) received from the car. The `<register>` field is the register value being acked. The `<data>` field contains a single `0x0`  byte.
 
-
 ### Init connection (0x5e)
-```
+
+```text
 [5e][0c][00][<data>][<cksum>]
 ```
 
@@ -165,16 +164,17 @@ Sent by the car after 10 initial ping/keepalive exchanges.
 
 The `<data>` contents are 12 unknown bytes but seems to change without a known pattern.
 
-
 ### Init ack (0xe5)
-```
+
+```text
 [e5][04][01][0100][<cksum>]
 ```
 
 Sent in response to a 0x5e packet. Always seems to be the same.
 
 ### Bad XOR (0xbb)
-```
+
+```text
 [bb][06][01][<unknown>][<exp>]
 ```
 
@@ -272,7 +272,6 @@ Vin info and regstration status.
 |1-18 | VIN (ascii) |
 |19 | Number of registered clients |
 
-
 ### 0x17 - Charge timer state
 
 ### 0x1c - Aircon mode
@@ -288,7 +287,7 @@ Single byte.
 
 ### 0x1d - Drive battery level / parking light status
 
-```
+```text
 10000003
 ```
 
@@ -303,7 +302,6 @@ Single byte.
 
 0000 - Unplugged
 0001 - Plugged in, not charging
-
 
 ### 0x1f - Charging status
 
@@ -323,7 +321,7 @@ AC timer sniff:
 
 ### 0x24 - Door / Lock status
 
-```
+```text
 Byte 0
 |
 1000000000
@@ -370,7 +368,9 @@ A string with the software version of the ECU.
 
 #### 0x1b - set climate state
 
+```text
 [02[state][duration][start]]
+```
 
 * Byte 0 - 02
 * Byte 1 - climate state
@@ -384,14 +384,13 @@ A string with the software version of the ECU.
 * Byte 3 - Delay before start
   * 00 - 0 mins / now
   * 01 - 5 mins
-  * 02 - 10 mins 
+  * 02 - 10 mins
 
 ## Notes
 
 Things discovered sniffing the app...
 
-
-```
+```text
 AC data sniff.
 
 Windscreen for 10 mins:
@@ -513,4 +512,3 @@ setting "headlights on exiting vehicle"
 
 light ones above followed by setting 0x0e->0x0
 ```
-
