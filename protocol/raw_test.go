@@ -3,7 +3,6 @@ package protocol
 import (
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"testing"
 )
 
@@ -13,6 +12,26 @@ func hexCmp(got []byte, want string) string {
 		return fmt.Sprintf("got=%s want=%s", gotS, want)
 	}
 	return ""
+}
+
+func TestSecurityKey(t *testing.T) {
+	testData, err := hex.DecodeString("5e0c0001becfe9adada5158b0181")
+	if err != nil {
+		t.Fatalf("hex.Decode(): %v", err)
+	}
+
+	sk := &SecurityKey{}
+	sk.Update(testData)
+
+	if got, want := sk.securityKey, byte(159); got != want {
+		t.Fatalf("security_key got=%d want=%d", got, want)
+	}
+	if got, want := sk.keyMap[0], byte(246); got != want {
+		t.Fatalf("keyMap[0] got=%d want=%d", got, want)
+	}
+	if got, want := sk.keyMap[255], byte(164); got != want {
+		t.Fatalf("keyMap[0] got=%d want=%d", got, want)
+	}
 }
 
 func TestXorMessage(t *testing.T) {
@@ -138,40 +157,6 @@ func TestValidateAndDecodeMessage(t *testing.T) {
 			}
 			if xor != test.xor {
 				t.Errorf("Xor got=%x want=%x", xor, test.xor)
-			}
-		})
-	}
-}
-func TestDecodeMessages(t *testing.T) {
-	tests := []struct {
-		in, want string
-	}{
-		{
-			in:   "caa2a5a7a5a5a5a5dd4bf4f1f15596",
-			want: "6f0700020000000078,bb040101a566",
-		}, {
-			in:   "06f4f0f6f3f306f4f0f6f3f3",
-			want: "f60400060303,f60400060303",
-		}, {
-			in:   "ff879094eda82091132d9091ece0a891906f6f93906f6f93c8",
-			want: "6f1700047d38b00183bd00017c70380100ffff0300ffff0358",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.in, func(t *testing.T) {
-			in, err := hex.DecodeString(test.in)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got := GetDecodedMessages(in)
-			gotList := []string{}
-			for _, m := range got {
-				gotList = append(gotList, hex.EncodeToString(m))
-			}
-			gotStr := strings.Join(gotList, ",")
-			if gotStr != test.want {
-				t.Errorf("got=%s want=%s", gotStr, test.want)
 			}
 		})
 	}

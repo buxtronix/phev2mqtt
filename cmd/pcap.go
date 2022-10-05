@@ -45,6 +45,7 @@ The decoder filters TCP packets to and from port 8080.
 			log.Fatal(err)
 		}
 		defer handle.Close()
+		securityKey = &protocol.SecurityKey{}
 
 		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 		var currentTime time.Time
@@ -107,7 +108,7 @@ func decodePacket(cmd *cobra.Command, packet gopacket.Packet) {
 
 func processPayload(cmd *cobra.Command, data []byte, dir string) {
 	log.Tracef("%%PHEV_PCAP_RAW_%s%%: %s\n", strings.ToUpper(dir), hex.EncodeToString(data))
-	msgs := protocol.NewFromBytes(data)
+	msgs := protocol.NewFromBytes(data, securityKey)
 	for _, msg := range msgs {
 		if r, _ := cmd.Flags().GetBool("registers"); r {
 			handleRegisters(msg)
@@ -116,6 +117,8 @@ func processPayload(cmd *cobra.Command, data []byte, dir string) {
 		log.Infof("%s [%02x] %s", dir, msg.Xor, msg.ShortForm())
 	}
 }
+
+var securityKey *protocol.SecurityKey
 
 var regs = map[byte]string{}
 

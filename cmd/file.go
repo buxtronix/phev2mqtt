@@ -51,7 +51,8 @@ Decode raw hex string messages from the provided filename.
 		if err != nil {
 			panic(err)
 		}
-		for _, msg := range protocol.NewFromBytes(binData) {
+		securityKey = &protocol.SecurityKey{}
+		for _, msg := range protocol.NewFromBytes(binData, securityKey) {
 			log.Debug(hex.EncodeToString(msg.Original))
 			log.Infof("%s", msg.ShortForm())
 		}

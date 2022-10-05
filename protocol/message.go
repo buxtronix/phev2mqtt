@@ -51,15 +51,16 @@ var messageStr = map[byte]string{
 }
 
 type PhevMessage struct {
-	Type     byte
-	Length   byte
-	Ack      byte
-	Register byte
-	Data     []byte
-	Checksum byte
-	Xor      byte
-	Original []byte
-	Reg      Register
+	Type          byte
+	Length        byte
+	Ack           byte
+	Register      byte
+	Data          []byte
+	Checksum      byte
+	Xor           byte
+	Original      []byte
+	OriginalXored []byte
+	Reg           Register
 }
 
 func (p *PhevMessage) ShortForm() string {
@@ -112,7 +113,7 @@ func (p *PhevMessage) RawString() string {
 	return hex.EncodeToString(p.Original)
 }
 
-func (p *PhevMessage) EncodeToBytes() []byte {
+func (p *PhevMessage) EncodeToBytes(key *SecurityKey) []byte {
 	length := byte(len(p.Data) + 3)
 	data := []byte{
 		p.Type,
@@ -122,17 +123,25 @@ func (p *PhevMessage) EncodeToBytes() []byte {
 	}
 	data = append(data, p.Data...)
 	data = append(data, Checksum(data))
-	msg := data
-	if p.Xor > 0 {
-		msg = XorMessageWith(data, p.Xor)
+	var xor byte
+	switch p.Type {
+	case CmdInMy18StartReq, CmdOutMy18StartResp:
+		// No xor/key for these messages.
+	case CmdOutSend:
+		// Use then increment send key.
+		xor = key.SKey(true)
+	default:
+		// Use but do not increment send key.
+		xor = key.SKey(false)
 	}
-	return msg
+	return XorMessageWith(data, xor)
 }
 
-func (p *PhevMessage) DecodeFromBytes(data []byte) error {
+func (p *PhevMessage) DecodeFromBytes(data []byte, key *SecurityKey) error {
 	if len(data) < 4 {
 		return fmt.Errorf("invalid packet length")
 	}
+	p.OriginalXored = data
 	data, xor, _ := ValidateAndDecodeMessage(data)
 	if len(data) < 4 || len(data) < int(data[1]+2) {
 		return fmt.Errorf("invalid packet length")
@@ -145,6 +154,14 @@ func (p *PhevMessage) DecodeFromBytes(data []byte) error {
 	p.Ack = data[2]
 	p.Xor = xor
 	p.Original = data
+	switch p.Type {
+	case CmdInMy18StartReq, CmdInMy14StartReq:
+		key.Update(p.OriginalXored)
+	case CmdInResp:
+		key.RKey(true)
+	case CmdOutSend:
+		key.SKey(true)
+	}
 	if p.Type == CmdInResp && p.Ack == Request {
 		switch p.Register {
 		case VINRegister:
@@ -180,7 +197,7 @@ func (p *PhevMessage) String() string {
 		p.Type, messageStr[p.Type], p.Length, p.Register, hex.EncodeToString(p.Data))
 }
 
-func NewFromBytes(data []byte) []*PhevMessage {
+func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 	msgs := []*PhevMessage{}
 
 	offset := 0
@@ -193,8 +210,10 @@ func NewFromBytes(data []byte) []*PhevMessage {
 			}
 			continue
 		}
+		dat = XorMessageWith(dat, xor)
 		p := &PhevMessage{}
-		err := p.DecodeFromBytes(dat)
+		err := p.DecodeFromBytes(dat, key)
+		p.OriginalXored = data[offset : offset+len(dat)]
 		p.Xor = xor
 		if err != nil {
 			fmt.Printf("decode error: %v\n", err)

@@ -65,23 +65,56 @@ the checksum.
 For example, given a packet of `f3040020`, the sum is 0x117, so the checksum
 is `0x17`. Thus the entire packet is `f304002017`.
 
-## XOR encoding
+## Security and XOR encoding
 
-Many of the packets on the wire are further encoded with a basic XOR scheme.
+Most packets on the wire are encoded with a simple XOR obfuscation algorithm.
+Packets from the car will be encoded using a rolling code scheme, and packets
+from the client to the car are expected to be encoded similarly.
 
-Each byte in the packet is XORed with a single byte value. The mechanism used
-to choose the value appears to be some rolling algorithm. Response packets
-from the client seem to use the same XOR value from the corresponding request packet.
+The algorithm was reverse engineered by @zivillian in
+[this issue](https://github.com/buxtronix/phev2mqtt/issues/16) which
+contains more detailed notes.
 
-Determining the XOR value to decode can be done by XORing the encoded packet
-with the value in the *Type* field. If the *Command* and *Checksum* are
-valid, then this is the correct Xor. If not, flip the last bit of thie *Type*
-value and try again.
+1. Initial security key
 
-When sending a command packet to the car, most packets must be encoded with a
-valid Xor value. Currently the algorithm to choose this is undetermined. However
-this can be worked around as the car will send back an error packet containing
-the expected Xor value. Just re-send the packet with this provided Xor.
+Shortly after client connection (and at occasional times during the connection), the
+car sends an initialisation packet of type `0x5e` or `0x4e`, depending on the year.
+The payload of this packet is used to firstly derive a `security_key` which is a
+single byte.
+
+Using this security key, a `key_map` is generated containing 256 distinct byte
+values. These byte values are used for the lifetime of the connection or until
+another initialisation packet is received.
+
+Two index values are initialised, starting at zero. We'll call these `s_num` and
+`r_num` for the send (to car) and receive (from car) directions. The `key_map`
+values at the indices represented by `s_num` and `r_num` are the actual encoding
+keys, we will call `s_key` and `r_key`.
+
+2. Packet encoding
+
+After the security key map has been established, all further packets to the car
+must be "encrypted" with the current `s_key`. Packets received from the car will
+be "encrypted" with the current `r_key`, so must be "decrypted" before further decoding.
+
+The "encryption" is done by simply XORing each byte in the packet with the current
+corresponding key value, either `key_map[s_num]` or `key_map[r_num]`. Being XOR,
+the "decryption" is done the same symmetrical way.
+
+3. s_num and r_num value incrementing
+
+The send and receive keys (i.e `s_key` and `r_key`) only change when certain
+packets are sent/received. Otherwise they may be used for multiple packets.
+
+When the car sends a packet of type `0x6f`, the `r_num` is incremented, hence
+the new `r_key` will be `key_map[r_num]`. Note that this change is used for
+packets *after* the `0x6f` packet.
+
+When the client sends a packet of type `0xf6`, the `s_num` is incremented, hence
+the new `s_key` will be `key_map[s_num]`. Note that this change is used for
+packets *after* the `0xf6` packet.
+
+`r_num` or `s_num` rollover back to zero if they increment from `0xff`.
 
 ## Packet types
 
@@ -93,8 +126,10 @@ Summary:
 |  0x3f | Ping response     | car -> client | Ping / Keepalive response            |
 |  0x6f | Register changed  | car -> client | Notify a register has been updated   |
 |  0xf6 | Register update   | client -> car | Client register change ack/set       |
-|  0x5e | Init connection?  | car -> client | Initialise connection?               |
-|  0xe5 | Init ack?         | client -> car | Ack connection init?                 |
+|  0x5e | Security init     | car -> client | Initialise security keys (MY18)      |
+|  0xe5 | Security ack      | client -> car | Ack security keys (MY18)             |
+|  0x4e | Security init     | car -> client | Initialise security keys (MY14)      |
+|  0xe4 | Security ack      | client -> car | Ack security keys (MY14)             |
 |  0x2f | Keepalive request | car -> client | Sent by car to check client presence |
 |  0xbb | Bad Xor?          | car -> client | Sent when XOR value is incorrect.    |
 |  0xcc | Bad Xor?          | car -> client | Sent when XOR value is incorrect.    |
@@ -154,15 +189,17 @@ If `<ack>` is zero, indicates that a register value is to be changed. The `<regi
 
 If `<ack>` is one, is a response to an update (above) received from the car. The `<register>` field is the register value being acked. The `<data>` field contains a single `0x0`  byte.
 
-### Init connection (0x5e)
+### Init security (0x5e)
 
 ```text
 [5e][0c][00][<data>][<cksum>]
 ```
 
-Sent by the car after 10 initial ping/keepalive exchanges.
+Sent by the car after around initial ping/keepalive exchanges.
 
-The `<data>` contents are 12 unknown bytes but seems to change without a known pattern.
+The `<data>` contents are 12 bytes, used to initialise the XOR encryption key map (see above).
+
+This packet is not XOR encrypted.
 
 ### Init ack (0xe5)
 
@@ -171,6 +208,8 @@ The `<data>` contents are 12 unknown bytes but seems to change without a known p
 ```
 
 Sent in response to a 0x5e packet. Always seems to be the same.
+
+This packet is not XOR encrypted.
 
 ### Bad XOR (0xbb)
 

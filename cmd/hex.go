@@ -31,13 +31,14 @@ var hexCmd = &cobra.Command{
 should be in hex format, e;g 'dc2b2f762f7f'.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		securityKey = &protocol.SecurityKey{}
 		for _, arg := range args {
 			data, err := hex.DecodeString(arg)
 			if err != nil {
 				log.Errorf("Not a valid hex string [%s]: %v", arg, err)
 				continue
 			}
-			for _, msg := range protocol.NewFromBytes(data) {
+			for _, msg := range protocol.NewFromBytes(data, securityKey) {
 				log.Debug(hex.EncodeToString(msg.Original))
 				log.Infof("%s", msg.ShortForm())
 			}

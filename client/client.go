@@ -63,6 +63,8 @@ type Client struct {
 	conn    net.Conn
 	started chan struct{}
 
+	key *protocol.SecurityKey
+
 	closed bool
 }
 
@@ -84,6 +86,7 @@ func New(opts ...Option) (*Client, error) {
 		started:   make(chan struct{}, 2),
 		listeners: []*Listener{},
 		address:   DefaultAddress,
+		key:       &protocol.SecurityKey{},
 	}
 	for _, o := range opts {
 		o(cl)
@@ -272,7 +275,7 @@ func (c *Client) reader() {
 			return
 		}
 		log.Tracef("%%PHEV_TCP_RECV_DATA%%: %s", hex.EncodeToString(data[:n]))
-		messages := protocol.NewFromBytes(data[:n])
+		messages := protocol.NewFromBytes(data[:n], c.key)
 		for _, m := range messages {
 			log.Debugf("%%PHEV_TCP_RECV_MSG%%: [%02x] %s", m.Xor, m.ShortForm())
 			c.lMu.Lock()
@@ -295,7 +298,8 @@ func (c *Client) writer() {
 				return
 			}
 			log.Debugf("%%PHEV_TCP_SEND_MSG%%: [%02x] %s", msg.Xor, msg.ShortForm())
-			data := msg.EncodeToBytes()
+			msg.Xor = 0
+			data := msg.EncodeToBytes(c.key)
 			log.Tracef("%%PHEV_TCP_SEND_DATA%%: %s", hex.EncodeToString(data))
 			c.conn.(*net.TCPConn).SetWriteDeadline(time.Now().Add(15 * time.Second))
 			if _, err := c.conn.Write(data); err != nil {
