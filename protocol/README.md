@@ -146,12 +146,12 @@ Seems to be a keepalive sent to the car from the client. The initial XOR seems t
 until a 0x5e packet is received from the car. The `<seq>` increments up to 0x63 then
 overflows back to 0x0.
 
-### Ping response (03f)
+### Ping response (0x3f)
 
 Format:
 
 ```text
-[f3][04][01][<seq>][00][<cksum>]
+[3f][04][01][<seq>][00][<cksum>]
 ```
 
 Response to a 0xf3 packet, sent from the car to the client. The `<seq>` matches the
@@ -391,21 +391,37 @@ the value is 1 if open, else 0.
 
 A string with the software version of the ECU.
 
-### Write registers (client to car)
+## Write registers (client to car)
 
-| Register | Name | Description/values |
-|--|--|--|
-|0x6 | Request udpated state | 0x3 |
-|0xa | Set head lights | 0x1=on 0x2=off |
-|0xb | Set parking lights | 0x1=on 0x2=off |
-|0xe | Save settings?? | Sent after 0xf command |
-|0xf | Update settings | See below |
-|0x1b | Set climate state |  |
-|0x17 | Cancel charge timer |  |
-|0x19 | Set charge timer schedule |  |
-|0x1a | Set climate timer schedule |  |
+| Register | Name                       | Description/values     |
+|----------|----------------------------|------------------------|
+| 0x5      | Sync time                  | See below              |
+| 0x6      | Request udpated state      | 0x3                    |
+| 0xa      | Set head lights            | 0x1=on 0x2=off         |
+| 0xb      | Set parking lights         | 0x1=on 0x2=off         |
+| 0xe      | Save settings??            | Sent after 0xf command |
+| 0xf      | Update settings            |                        |
+| 0x1b     | Set climate state          | See below              |
+| 0x17     | Cancel charge timer        |                        |
+| 0x19     | Set charge timer schedule  |                        |
+| 0x1a     | Set climate timer schedule |                        |
 
-#### 0x1b - set climate state
+### 0x05 - Sync Time
+
+8 bytes.
+
+| Byte(s) | Description   |
+|---------|---------------|
+|       0 | Year - 2000   |
+|       1 | Month         |
+|       2 | Day of month  |
+|       3 | Hour          |
+|       4 | Minute        |
+|       5 | Second        |
+|       6 | Day of week   |
+|       7 | Device rooted |
+
+### 0x1b - set climate state
 
 ```text
 [02[state][duration][start]]
