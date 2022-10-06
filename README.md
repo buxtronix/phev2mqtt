@@ -132,13 +132,15 @@ The following topics are subscribed to and can be used to change state on the ca
 | phev/set/headlights | Set head lights *on* or *off* |
 | phev/set/cancelchargetimer | Cancel charge timer (any payload) |
 | phev/set/climate/[mode] | Set ac/climate state (cool/heat/windscreen/off) for [payload] (10[on]/20/30) |
+| phev/connection | Change car connection state to (on/off/restart) |
 
 #### Home Assistant discovery
 
 The client supports [Home Assistant MQTT Discovery](https://www.home-assistant.io/docs/mqtt/discovery/) by default.
 
 After initial discovery, re-run the binary for the entities to appear. You can
-search for "phev" in your entity list.
+search for "phev" in your entity list. Your car should also appear as a device
+in the Devices tab.
 
 You can disable this with `--ha_discovery=false` or change the discovery prefix, the default is `--ha_discovery_prefix=homeassistant`.
 
