@@ -287,6 +287,49 @@ There seem to be two types of register layout (A/B).
 
 ### 0x0b - Parking light status
 
+### 0x05 - Climate timer
+
+16 bytes.
+
+|Byte(s) | Description |
+|--------|-------------|
+| 0      | Unknown     |
+| 1-3    | Timer 1     |
+| 4-6    | Timer 2     |
+| 7-9    | Timer 3     |
+| 10-12  | Timer 4     |
+| 13-15  | Timer 5     |
+
+#### Timer 1..5
+
+__must be converted from big endian to little endian__ to be useful
+
+```text
+0xa5f0afe -> 0xfef0a5
+```
+
+```text
+0xfef0a5 = 1 11 1111 01111 000 0101001 01
+           |         |     |   |        |
+         Bit23    Bit16 Bit11 Bit8     Bit0
+```
+
+| __Bits__ | Description                                 |
+|----------|---------------------------------------------|
+| 0-1      | Duration: 0=10min 1=20min 2=30min ?3=40min? |
+| 2        | Sunday                                      |
+| 3        | Monday                                      |
+| 4        | Tuesday                                     |
+| 5        | Wednesday                                   |
+| 6        | Thursday                                    |
+| 7        | Friday                                      |
+| 8        | Saturday                                    |
+| 9-11     | Minute: 0=0 1=10 2=20 3=30 4=40 5=50        |
+| 12-16    | Hour: 0=0 1=1 2=2 ... 21=21 22=22 23=23     |
+| 17       | on                                          |
+| 18       | off                                         |
+| 19-23    | Unknown (unused?)                           |
+
 ### 0x10 - Aircon status
 
 3 bytes.
@@ -401,6 +444,7 @@ A string with the software version of the ECU.
 | 0xb      | Set parking lights         | 0x1=on 0x2=off         |
 | 0xe      | Save settings??            | Sent after 0xf command |
 | 0xf      | Update settings            |                        |
+| 0x1a     | Set climate timer          | See below              |
 | 0x1b     | Set climate state          | See below              |
 | 0x17     | Cancel charge timer        |                        |
 | 0x19     | Set charge timer schedule  |                        |
@@ -420,6 +464,21 @@ A string with the software version of the ECU.
 |       5 | Second        |
 |       6 | Day of week   |
 |       7 | Device rooted |
+
+### 0x1a - set climate timer
+
+16 bytes.
+
+|Byte(s) | Description |
+|--------|-------------|
+| 0-2    | Timer 1     |
+| 3-5    | Timer 2     |
+| 6-8    | Timer 3     |
+| 9-11   | Timer 4     |
+| 12-14  | Timer 5     |
+| 15     | Unknown     |
+
+The Encoding for Timer 1 to 5 is the same as for [reading](#timer-15)
 
 ### 0x1b - set climate state
 
