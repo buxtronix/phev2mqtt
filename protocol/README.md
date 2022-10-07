@@ -309,9 +309,10 @@ __must be converted from big endian to little endian__ to be useful
 ```
 
 ```text
-0xfef0a5 = 1 11 1111 01111 000 0101001 01
-           |         |     |   |        |
-         Bit23    Bit16 Bit11 Bit8     Bit0
+0xfef0a5 = 11111110 11110000 10100101
+           |     |     |  |       | |
+         Bit23 Bit17   |  Bit9    | Bit0
+                     Bit12       Bit2
 ```
 
 | __Bits__ | Description                                 |
