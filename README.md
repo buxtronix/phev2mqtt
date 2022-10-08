@@ -15,6 +15,7 @@ Tested against a MY18 vehicle.
 
  * MQTT proxy to Phev
  * Home Assistant discovery
+ * Register client to car
  * Fetch battery, charge, door, light status
  * Set lights and charge enable
  * Near-instant response to commands
@@ -25,8 +26,6 @@ Also includes some debugging utilities.
 ## Requirements
 
  * Go compiler
- * To connect, a previously registered connection to a phone/tablet.
-   * This library doesnt yet support client registration.
 
 ## Licence, etc
 
@@ -59,24 +58,25 @@ Contributions and PRs are welcome.
 
 ### Connecting to the vehicle.
 
-#### Register a mobile device with official app
-
-As the program does not (yet) support client registration, you will first need to
-register a phone/tablet to the car. Follow the [Mitsubishi instructions](https://www.mitsubishi-motors.com/en/products/outlander_phev/app/remote/)
-and register the phone app to the car. You will need the Wifi credentials provided
-with the car.
-
-#### Obtain MAC address the app uses
-
-Next, find the MAC address of the client. On your phone/table, go to Wifi settings,
-search for the car SSID and find the MAC address used. On Android this will likely
-be a randomised address. Note this address down.
-
 #### Configure Wifi client on system running mqtt2phev
 
 On your computer running the phev2mqtt tools, configure a new Wifi connection to the
-car's SSID, and it's also essential to set the Wifi adapter mac address to the client
-MAC address you noted above. Poke around online for how to do this for your system.
+car's SSID,
+
+#### Register the client to the car
+
+Follow the [Mitsubishi instructions](https://www.mitsubishi-motors.com/en/products/outlander_phev/app/remote/)
+to find the Wifi credentials provided with the car.
+
+Verify that your Wifi connection to the car is established - your local IP address
+should be 192.168.8.47.
+
+Follow the [Mitsubishi instructions](https://www.mitsubishi-motors.com/en/products/outlander_phev/app/remote/)
+and put the car into registration mode ("Setup Your Vehicle"). You may need to
+re-establish the Wifi connection.
+
+Register by running `phev2mqtt client register` and you should shortly see a message
+indicating successful registration.
 
 #### Testing the tool
 

@@ -30,11 +30,28 @@ import (
 var registerCmd = &cobra.Command{
 	Use:   "register",
 	Short: "Register client with the car",
-	//	Args:  cobra.MinimumNArgs(1),
 	Long: `Register phev2mqtt with the car.
 
 You will need to first put the car into registration mode, then run
 this command within 5 minutes.
+
+The car will register the MAC address that connects to it - typically the
+MAC address of the TCP client that ultimately connects to the car. If you
+are going via a NAT gateway, etc, then bear this in mind.
+
+`,
+	Run: runRegister,
+}
+
+// unRegisterCmd represents the unregister command
+var unRegisterCmd = &cobra.Command{
+	Use:   "unregister",
+	Short: "Un register client from the car",
+	Long: `Unregister this phev2mqtt instance from the car.
+
+The car will unregister the MAC address that connects to it - typically the
+MAC address of the TCP client that ultimately connects to the car. If you
+are going via a NAT gateway, etc, then bear this in mind.
 
 `,
 	Run: runRegister,
@@ -94,21 +111,26 @@ func runRegister(cmd *cobra.Command, args []string) {
 		log.Errorf("Client closed before recieving VIN")
 		return
 	}
-	fmt.Printf("Car VIN is %s - attempting to register...\n", vin)
 
 	reg := byte(0x10)
-	if unreg, _ := cmd.Flags().GetBool("unregister"); unreg {
+	if cmd.Use == "unregister" {
+		fmt.Printf("Attempting to unregister from car (VIN: %s)...\n", vin)
 		reg = 0x15
+	} else {
+		fmt.Printf("Attempting to register to car (VIN: %s)...\n", vin)
 	}
 	if err := cl.SetRegister(reg, []byte{0x1}); err != nil {
-		log.Errorf("Failed to register: %v", err)
+		log.Errorf("Failed to (un)register: %v", err)
 		return
 	}
-	fmt.Printf("Successfully registered!\n")
+	cl.Close()
+	time.Sleep(time.Second)
+	fmt.Printf("Success!\n")
 }
 
 func init() {
 	clientCmd.AddCommand(registerCmd)
+	clientCmd.AddCommand(unRegisterCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -120,5 +142,5 @@ func init() {
 	// is called directly, e.g.:
 	// registerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	registerCmd.Flags().Duration("wait_duration", 10*time.Second, "How long to wait after connecting to car before sending registration command")
-	registerCmd.Flags().Bool("unregister", false, "Remove existing registration (this mac address)")
+	unRegisterCmd.Flags().Duration("wait_duration", 10*time.Second, "How long to wait after connecting to car before sending registration command")
 }

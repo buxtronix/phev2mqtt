@@ -61,6 +61,7 @@ type Client struct {
 
 	address string
 	conn    net.Conn
+	lastRx  time.Time
 	started chan struct{}
 
 	key *protocol.SecurityKey
@@ -137,6 +138,7 @@ func (c *Client) Connect() error {
 	go c.reader()
 	go c.writer()
 	go c.manage()
+	go c.pinger()
 
 	return nil
 }
@@ -215,6 +217,31 @@ func (c *Client) nextRecvMsg(deadline time.Time) (*protocol.PhevMessage, error) 
 	}
 }
 
+// Sends periodic pings to the car.
+func (c *Client) pinger() {
+	pingSeq := byte(0xa)
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for t := range ticker.C {
+		switch {
+		case c.closed:
+			return
+		case t.Sub(c.lastRx) < 500*time.Millisecond:
+			continue
+		}
+		c.Send <- &protocol.PhevMessage{
+			Type:     protocol.CmdOutPingReq,
+			Ack:      protocol.Request,
+			Register: pingSeq,
+			Data:     []byte{0x0},
+		}
+		pingSeq++
+		if pingSeq > 0x63 {
+			pingSeq = 0
+		}
+	}
+}
+
 // manages the connection, handling control messages.
 func (c *Client) manage() {
 	ml := c.AddListener()
@@ -274,6 +301,7 @@ func (c *Client) reader() {
 			c.lMu.Unlock()
 			return
 		}
+		c.lastRx = time.Now()
 		log.Tracef("%%PHEV_TCP_RECV_DATA%%: %s", hex.EncodeToString(data[:n]))
 		messages := protocol.NewFromBytes(data[:n], c.key)
 		for _, m := range messages {
@@ -297,9 +325,9 @@ func (c *Client) writer() {
 				c.conn.Close()
 				return
 			}
-			log.Debugf("%%PHEV_TCP_SEND_MSG%%: [%02x] %s", msg.Xor, msg.ShortForm())
 			msg.Xor = 0
 			data := msg.EncodeToBytes(c.key)
+			log.Debugf("%%PHEV_TCP_SEND_MSG%%: [%02x] %s", msg.Xor, msg.ShortForm())
 			log.Tracef("%%PHEV_TCP_SEND_DATA%%: %s", hex.EncodeToString(data))
 			c.conn.(*net.TCPConn).SetWriteDeadline(time.Now().Add(15 * time.Second))
 			if _, err := c.conn.Write(data); err != nil {
