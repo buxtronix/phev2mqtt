@@ -401,6 +401,8 @@ A string with the software version of the ECU.
 | 0xb      | Set parking lights         | 0x1=on 0x2=off         |
 | 0xe      | Save settings??            | Sent after 0xf command |
 | 0xf      | Update settings            |                        |
+| 0x10     | Register Wifi client       | 0x1                    |
+| 0x15     | Unregister Wifi client     | 0x1                    |
 | 0x1b     | Set climate state          | See below              |
 | 0x17     | Cancel charge timer        |                        |
 | 0x19     | Set charge timer schedule  |                        |
@@ -420,6 +422,16 @@ A string with the software version of the ECU.
 |       5 | Second        |
 |       6 | Day of week   |
 |       7 | Device rooted |
+
+### 0x10 - Register wifi client
+
+This command is issued when the car is in registration mode. A new client that connects
+to the car sends this command, then the car registers its mac address as a valid client.
+
+### 0x15 - Unregister Wifi client
+
+This command is issued in any mode (registration or otherwise). It removes the Wifi
+registration for the client (based on the MAC address it sees for the TCP client).
 
 ### 0x1b - set climate state
 
