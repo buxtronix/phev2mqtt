@@ -3,6 +3,7 @@ package protocol
 import (
 	"encoding/hex"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -134,6 +135,7 @@ func (p *PhevMessage) EncodeToBytes(key *SecurityKey) []byte {
 		// Use but do not increment send key.
 		xor = key.SKey(false)
 	}
+	p.Xor = xor
 	return XorMessageWith(data, xor)
 }
 
@@ -200,6 +202,7 @@ func (p *PhevMessage) String() string {
 func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 	msgs := []*PhevMessage{}
 
+	log.Tracef("%%PHEV_DECODE_FROM_BYTES%%: Raw: %s", hex.EncodeToString(data))
 	offset := 0
 	for {
 		dat, xor, rem := ValidateAndDecodeMessage(data[offset:])
@@ -210,6 +213,7 @@ func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 			}
 			continue
 		}
+		log.Tracef("%%PHEV_DECODED_FROM_BYTES%%: Raw: %s", hex.EncodeToString(dat))
 		dat = XorMessageWith(dat, xor)
 		p := &PhevMessage{}
 		err := p.DecodeFromBytes(dat, key)
@@ -224,6 +228,7 @@ func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 			break
 		}
 		data = rem
+		offset = 0
 	}
 	return msgs
 }

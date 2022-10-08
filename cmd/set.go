@@ -18,7 +18,9 @@ package cmd
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/buxtronix/phev2mqtt/client"
 	//	log "github.com/sirupsen/logrus"
@@ -70,6 +72,15 @@ func runSet(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	waitTime, err := cmd.Flags().GetDuration("wait_duration")
+	if err != nil {
+		panic(err)
+	}
+	sendInterval, err := cmd.Flags().GetDuration("send_interval")
+	if err != nil {
+		panic(err)
+	}
+
 	address, _ := cmd.Flags().GetString("address")
 	cl, err := client.New(client.AddressOption(address))
 	if err != nil {
@@ -83,11 +94,16 @@ func runSet(cmd *cobra.Command, args []string) {
 	if err := cl.Start(); err != nil {
 		panic(err)
 	}
+	fmt.Printf("Client connected and started!\nWaiting %d\n", waitTime.String())
+
+	time.Sleep(waitTime)
 
 	for _, reg := range setRegisters {
+		fmt.Printf("Setting register 0x%x to 0x%s\n", reg.register, hex.EncodeToString(reg.value))
 		if err := cl.SetRegister(reg.register, reg.value); err != nil {
 			panic(err)
 		}
+		time.Sleep(sendInterval)
 	}
 
 }
@@ -104,4 +120,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// registerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	setCmd.Flags().Duration("wait_duration", 10*time.Second, "How long to wait after connecting to car before sending register update")
+	setCmd.Flags().Duration("send_interval", 1*time.Second, "Interval between setting each register")
 }

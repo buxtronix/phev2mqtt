@@ -46,6 +46,7 @@ The decoder filters TCP packets to and from port 8080.
 		}
 		defer handle.Close()
 		securityKey = &protocol.SecurityKey{}
+		pings, _ = cmd.Flags().GetBool("pings")
 
 		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 		var currentTime time.Time
@@ -114,6 +115,9 @@ func processPayload(cmd *cobra.Command, data []byte, dir string) {
 			handleRegisters(msg)
 			return
 		}
+		if !pings && (msg.Type == protocol.CmdOutPingReq || msg.Type == protocol.CmdInPingResp) {
+			return
+		}
 		log.Infof("%s [%02x] %s", dir, msg.Xor, msg.ShortForm())
 	}
 }
@@ -122,11 +126,17 @@ var securityKey *protocol.SecurityKey
 
 var regs = map[byte]string{}
 
+var pings bool
+
 func handleRegisters(m *protocol.PhevMessage) {
 	if m.Type == protocol.CmdInResp {
 		data := hex.EncodeToString(m.Data)
 		if d := regs[m.Register]; d != data {
-			log.Infof("UPDATEREG 0x%02x: %s -> %s\n", m.Register, d, data)
+			if m.Reg != nil {
+				log.Infof("UPDATEREG 0x%02x: %s -> %s (%s)\n", m.Register, d, data, m.Reg.String())
+			} else {
+				log.Infof("UPDATEREG 0x%02x: %s -> %s\n", m.Register, d, data)
+			}
 			regs[m.Register] = data
 		}
 	}
@@ -147,4 +157,5 @@ func init() {
 	pcapCmd.Flags().StringP("direction", "d", "both", "Direction to decode")
 	pcapCmd.Flags().BoolP("latency", "l", false, "Replay with original network latency")
 	pcapCmd.Flags().BoolP("registers", "R", false, "Show register updates")
+	pcapCmd.Flags().BoolP("pings", "P", false, "Show ping requests and responses")
 }

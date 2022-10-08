@@ -28,6 +28,7 @@ import (
 var (
 	cfgFile  string
 	logLevel string
+	logTimes bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -42,6 +43,11 @@ var rootCmd = &cobra.Command{
 			panic(err)
 		}
 		log.SetLevel(level)
+		if logTimes {
+			log.SetFormatter(&log.TextFormatter{
+				FullTimestamp: true,
+			})
+		}
 	},
 
 	// Uncomment the following line if your bare application
@@ -64,6 +70,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.phev2mqtt.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "verbosity", "v", "info", "logging level to use")
+	rootCmd.PersistentFlags().BoolVarP(&logTimes, "log_timestamps", "t", false, "logging with timestamps")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
