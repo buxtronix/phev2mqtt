@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	log "github.com/sirupsen/logrus"
@@ -86,7 +87,7 @@ func (p *PhevMessage) ShortForm() string {
 
 	case CmdInResp:
 		if p.Ack == Request {
-			return fmt.Sprintf("REGISTER NTFY (reg 0x%02x data %s)", p.Register, hex.EncodeToString(p.Data))
+			return fmt.Sprintf("REGISTER NTFY (reg 0x%02x data %s [%s])", p.Register, hex.EncodeToString(p.Data), p.Reg.String())
 		}
 		return fmt.Sprintf("REGISTER SETACK (reg 0x%02x data %s)", p.Register, hex.EncodeToString(p.Data))
 
@@ -168,6 +169,8 @@ func (p *PhevMessage) DecodeFromBytes(data []byte, key *SecurityKey) error {
 		switch p.Register {
 		case VINRegister:
 			p.Reg = new(RegisterVIN)
+		case SettingsRegister:
+			p.Reg = new(RegisterSettings)
 		case ECUVersionRegister:
 			p.Reg = new(RegisterECUVersion)
 		case BatteryLevelRegister:
@@ -235,6 +238,7 @@ func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 
 const (
 	VINRegister            = 0x15
+	SettingsRegister            = 0x16
 	ECUVersionRegister     = 0xc0
 	BatteryLevelRegister   = 0x1d
 	BatteryWarningRegister = 0x02
@@ -270,6 +274,28 @@ func (r *RegisterGeneric) String() string {
 }
 
 func (r *RegisterGeneric) Register() byte {
+	return r.register
+}
+
+type RegisterSettings struct {
+	register byte
+	raw      []byte
+}
+
+func (r *RegisterSettings) Decode(m *PhevMessage) {
+	r.register = m.Register
+	r.raw = m.Data
+}
+func (r *RegisterSettings) Raw() string {
+	return hex.EncodeToString(r.raw)
+}
+
+func (r *RegisterSettings) String() string {
+	value := binary.LittleEndian.Uint64(r.raw)
+	return fmt.Sprintf("Car Settings: %16x", value)
+}
+
+func (r *RegisterSettings) Register() byte {
 	return r.register
 }
 

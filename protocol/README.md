@@ -258,7 +258,7 @@ There seem to be two types of register layout (A/B).
 |0x13      | ??                           | 1      | 66        | [1]                           |                                     |
 |0x14      | ??                           | 7      | 67        | [6,1]                         |                                     |
 |0x15      | VIN                          | 20     | 246 / 74  | [19,11] / [1,17,1,1]          |                                     |
-|0x16      | ??                           | 8      | 95        | [8]                           | Seems to convey some other settings |
+|0x16      | Settings                     | 8      | 95        | [8]                           | Current vehicle settings. See [SETTINGS.md](SETTINGS.md) |
 |0x17      | ??                           | 1      | 103       | [1]                           |                                     |
 |0x18      | ??                           | 4 / 16 | 276 / 104 | [1,1,2] / [5,3,5,3]           |                                     |
 |0x19      | ??                           | 9      | 120       | [1,5,3]                       |                                     |
@@ -452,6 +452,13 @@ registration for the client (based on the MAC address it sees for the TCP client
   * 00 - 0 mins / now
   * 01 - 5 mins
   * 02 - 10 mins
+
+## Vehicle settings
+
+The OEM app includes quite a number of settings that can be changed on
+the car. Things such as light timers, wiper behaviour, etc. Some of these
+have been discovered. See [SETTINGS.md](SETTINGS.md) for an overview.
+
 
 ## Notes
 

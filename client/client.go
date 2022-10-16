@@ -56,6 +56,9 @@ type Client struct {
 	// Send is a channel to send messages to the Phev.
 	Send chan *protocol.PhevMessage
 
+	// Settings are vehicle settings.
+	Settings *protocol.Settings
+
 	listeners []*Listener
 	lMu       sync.Mutex
 
@@ -84,6 +87,7 @@ func New(opts ...Option) (*Client, error) {
 	cl := &Client{
 		Recv:      make(chan *protocol.PhevMessage, 5),
 		Send:      make(chan *protocol.PhevMessage, 5),
+		Settings: &protocol.Settings{},
 		started:   make(chan struct{}, 2),
 		listeners: []*Listener{},
 		address:   DefaultAddress,
@@ -248,6 +252,10 @@ func (c *Client) manage() {
 	defer ml.Stop()
 	for m := range ml.C {
 		switch m.Type {
+		case protocol.CmdInResp:
+			if m.Ack == protocol.Request && m.Register == protocol.SettingsRegister {
+				c.Settings.FromRegister(m.Data)
+			}
 		case protocol.CmdInStartResp:
 			c.Send <- &protocol.PhevMessage{
 				Type:     protocol.CmdOutPingReq,
@@ -305,7 +313,11 @@ func (c *Client) reader() {
 		log.Tracef("%%PHEV_TCP_RECV_DATA%%: %s", hex.EncodeToString(data[:n]))
 		messages := protocol.NewFromBytes(data[:n], c.key)
 		for _, m := range messages {
-			log.Debugf("%%PHEV_TCP_RECV_MSG%%: [%02x] %s", m.Xor, m.ShortForm())
+			if m.Type == protocol.CmdInPingResp {
+				log.Tracef("%%PHEV_TCP_RECV_MSG%%: [%02x] %s", m.Xor, m.ShortForm())
+			} else {
+				log.Debugf("%%PHEV_TCP_RECV_MSG%%: [%02x] %s", m.Xor, m.ShortForm())
+			}
 			c.lMu.Lock()
 			for _, l := range c.listeners {
 				l.send(m)
@@ -327,7 +339,11 @@ func (c *Client) writer() {
 			}
 			msg.Xor = 0
 			data := msg.EncodeToBytes(c.key)
-			log.Debugf("%%PHEV_TCP_SEND_MSG%%: [%02x] %s", msg.Xor, msg.ShortForm())
+			if msg.Type == protocol.CmdOutPingReq {
+				log.Tracef("%%PHEV_TCP_SEND_MSG%%: [%02x] %s", msg.Xor, msg.ShortForm())
+			} else {
+				log.Debugf("%%PHEV_TCP_SEND_MSG%%: [%02x] %s", msg.Xor, msg.ShortForm())
+			}
 			log.Tracef("%%PHEV_TCP_SEND_DATA%%: %s", hex.EncodeToString(data))
 			c.conn.(*net.TCPConn).SetWriteDeadline(time.Now().Add(15 * time.Second))
 			if _, err := c.conn.Write(data); err != nil {

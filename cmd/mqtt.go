@@ -179,6 +179,9 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	if token := m.client.Subscribe(m.topic("/connection"), 0, nil); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+	if token := m.client.Subscribe(m.topic("/settings/#"), 0, nil); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
 
 	m.mqttData = map[string]string{}
 
@@ -304,6 +307,10 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 			log.Infof("Error setting register 0x1b: %v", err)
 			return
 		}
+	} else if msg.Topic() == m.topic("/settings/dump") {
+		log.Infof("CURRENT_SETTINGS:")
+		log.Infof("\n%s", m.phev.Settings.Dump())
+		m.phev.Settings.Clear()
 	} else {
 		log.Errorf("Unknown topic from mqtt: %s", msg.Topic())
 	}
