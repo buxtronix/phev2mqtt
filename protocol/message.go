@@ -184,6 +184,8 @@ func (p *PhevMessage) DecodeFromBytes(data []byte, key *SecurityKey) error {
 			p.Reg = new(RegisterACOperStatus)
 		case ACModeRegister:
 			p.Reg = new(RegisterACMode)
+		case WIFISSIDRegister:
+			p.Reg = new(RegisterWIFISSID)
 		default:
 			p.Reg = new(RegisterGeneric)
 		}
@@ -239,6 +241,7 @@ const (
 	BatteryLevelRegister   = 0x1d
 	BatteryWarningRegister = 0x02
 	DoorStatusRegister     = 0x24
+	WIFISSIDRegister       = 0x28
 	ChargeStatusRegister   = 0x1f
 	ACOperStatusRegister   = 0x1a
 	ACModeRegister         = 0x1c
@@ -247,30 +250,39 @@ const (
 
 type Register interface {
 	Decode(*PhevMessage)
+	Encode() *PhevMessage
 	Raw() string
 	String() string
 	Register() byte
 }
 
 type RegisterGeneric struct {
-	register byte
-	raw      []byte
+	Reg   byte
+	Value []byte
 }
 
 func (r *RegisterGeneric) Decode(m *PhevMessage) {
-	r.register = m.Register
-	r.raw = m.Data
+	r.Reg = m.Register
+	r.Value = m.Data
 }
+
+func (r *RegisterGeneric) Encode() *PhevMessage {
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     r.Value,
+	}
+}
+
 func (r *RegisterGeneric) Raw() string {
-	return hex.EncodeToString(r.raw)
+	return hex.EncodeToString(r.Value)
 }
 
 func (r *RegisterGeneric) String() string {
-	return fmt.Sprintf("g(0x%02x): %s", r.register, r.Raw())
+	return fmt.Sprintf("g(0x%02x): %s", r.Reg, r.Raw())
 }
 
 func (r *RegisterGeneric) Register() byte {
-	return r.register
+	return r.Reg
 }
 
 type RegisterVIN struct {
@@ -286,6 +298,17 @@ func (r *RegisterVIN) Decode(m *PhevMessage) {
 	r.VIN = string(m.Data[1:17])
 	r.Registrations = int(m.Data[19])
 	r.raw = m.Data
+}
+
+func (r *RegisterVIN) Encode() *PhevMessage {
+	data := []byte{0x3}
+	data = append(data, []byte(r.VIN)...)
+	data = append(data, 0x0)
+	data = append(data, byte(r.Registrations))
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     data,
+	}
 }
 
 func (r *RegisterVIN) Raw() string {
@@ -311,6 +334,15 @@ func (r *RegisterECUVersion) Decode(m *PhevMessage) {
 	}
 	r.Version = string(m.Data[:9])
 	r.raw = m.Data
+}
+
+func (r *RegisterECUVersion) Encode() *PhevMessage {
+	data := []byte(r.Version)
+	data = append(data, []byte{0x11, 0x00, 0x00}...)
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     data,
+	}
 }
 
 func (r *RegisterECUVersion) Raw() string {
@@ -340,6 +372,18 @@ func (r *RegisterBatteryLevel) Decode(m *PhevMessage) {
 	r.raw = m.Data
 }
 
+func (r *RegisterBatteryLevel) Encode() *PhevMessage {
+	data := []byte{byte(r.Level), 0x0, 0x0}
+	if r.ParkingLights {
+		data[2] = 0x1
+	}
+
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     data,
+	}
+}
+
 func (r *RegisterBatteryLevel) Raw() string {
 	return hex.EncodeToString(r.raw)
 }
@@ -363,6 +407,14 @@ func (r *RegisterBatteryWarning) Decode(m *PhevMessage) {
 	}
 	r.Warning = int(m.Data[2])
 	r.raw = m.Data
+}
+
+func (r *RegisterBatteryWarning) Encode() *PhevMessage {
+	data := []byte{0x0, 0x0, byte(r.Warning), 0x0}
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     data,
+	}
 }
 
 func (r *RegisterBatteryWarning) Raw() string {
@@ -401,6 +453,38 @@ func (r *RegisterDoorStatus) Decode(m *PhevMessage) {
 	r.Bonnet = m.Data[8] == 0x1
 	r.Headlights = m.Data[9] == 0x1
 	r.raw = m.Data
+}
+
+func (r *RegisterDoorStatus) Encode() *PhevMessage {
+	data := make([]byte, 10)
+	if r.Locked {
+		data[0] = 0x1
+	}
+	if r.Driver {
+		data[3] = 0x1
+	}
+	if r.FrontPassenger {
+		data[4] = 0x1
+	}
+	if r.RearRight {
+		data[5] = 0x1
+	}
+	if r.RearLeft {
+		data[6] = 0x1
+	}
+	if r.Boot {
+		data[7] = 0x1
+	}
+	if r.Bonnet {
+		data[8] = 0x1
+	}
+	if r.Headlights {
+		data[9] = 0x1
+	}
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     data,
+	}
 }
 
 func (r *RegisterDoorStatus) Raw() string {
@@ -466,6 +550,30 @@ func (r *RegisterChargeStatus) Decode(m *PhevMessage) {
 		r.Remaining = low + high
 	}
 	r.raw = m.Data
+}
+
+func (r *RegisterChargeStatus) Encode() *PhevMessage {
+	data := make([]byte, 3)
+	if r.Charging {
+		data[0] = 0x1
+		data[1] = byte(r.Remaining % 256)
+		data[2] = byte(r.Remaining / 256)
+	}
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     data,
+	}
+}
+
+func (r *RegisterACOperStatus) Encode() *PhevMessage {
+	data := make([]byte, 5)
+	if r.Operating {
+		data[1] = 0x1
+	}
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     data,
+	}
 }
 
 func (r *RegisterChargeStatus) Raw() string {
@@ -534,6 +642,24 @@ func (r *RegisterACMode) Decode(m *PhevMessage) {
 	r.raw = m.Data
 }
 
+func (r *RegisterACMode) Encode() *PhevMessage {
+	var data byte
+	switch r.Mode {
+	case "unknown":
+		data = 0x0
+	case "cool":
+		data = 0x1
+	case "heat":
+		data = 0x2
+	case "windscreen":
+		data = 0x3
+	}
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     []byte{data},
+	}
+}
+
 func (r *RegisterACMode) Raw() string {
 	return hex.EncodeToString(r.raw)
 }
@@ -559,6 +685,17 @@ func (r *RegisterChargePlug) Decode(m *PhevMessage) {
 	r.raw = m.Data
 }
 
+func (r *RegisterChargePlug) Encode() *PhevMessage {
+	data := make([]byte, 2)
+	if r.Connected {
+		data[1] = 0x1
+	}
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     data,
+	}
+}
+
 func (r *RegisterChargePlug) Raw() string {
 	return hex.EncodeToString(r.raw)
 }
@@ -572,4 +709,65 @@ func (r *RegisterChargePlug) String() string {
 
 func (r *RegisterChargePlug) Register() byte {
 	return ChargePlugRegister
+}
+
+type RegisterWIFISSID struct {
+	SSID string
+	raw  []byte
+}
+
+func (r *RegisterWIFISSID) Decode(m *PhevMessage) {
+	if m.Register != WIFISSIDRegister || len(m.Data) != 32 {
+		return
+	}
+	r.raw = []byte(m.Data)
+	r.raw = append([]byte{}, m.Data...)
+	dat := append([]byte{}, m.Data...)
+	for i, b := range dat {
+		if b == 0xff {
+			dat[i] = 0x0
+		}
+	}
+	r.SSID = string(dat)
+}
+
+func (r *RegisterWIFISSID) Encode() *PhevMessage {
+	data := []byte(r.SSID)
+	padding := make([]byte, 32-len(r.SSID))
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     append(data, padding...),
+	}
+}
+
+func (r *RegisterWIFISSID) Raw() string {
+	return hex.EncodeToString(r.raw)
+}
+
+func (r *RegisterWIFISSID) String() string {
+	return fmt.Sprintf("SSID: %s", r.SSID)
+}
+
+func (r *RegisterWIFISSID) Register() byte {
+	return WIFISSIDRegister
+}
+
+func NewPingRequestMessage(id byte) *PhevMessage {
+	return NewMessage(CmdOutPingReq, id, false, []byte{0x0})
+}
+
+func NewPingResponseMessage(id byte) *PhevMessage {
+	return NewMessage(CmdInPingResp, id, true, []byte{0x0})
+}
+
+func NewMessage(typ, register byte, ack bool, data []byte) *PhevMessage {
+	msg := &PhevMessage{
+		Type:     typ,
+		Register: register,
+		Data:     data,
+	}
+	if ack {
+		msg.Ack = Ack
+	}
+	return msg
 }
