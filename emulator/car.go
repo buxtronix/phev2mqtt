@@ -2,8 +2,10 @@ package emulator
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/buxtronix/phev2mqtt/protocol"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"math/rand"
 	"net"
 	"time"
@@ -45,6 +47,37 @@ func (c *Car) Begin() error {
 	}()
 	log.Debugf("%%PHEV_EMULATOR_START%% Started PHEV emulator, address=%s", c.address)
 	return nil
+}
+
+// SetRegister sends a register to client.
+func (c *Car) SetRegister(register byte, value []byte) error {
+	g := new(errgroup.Group)
+	for _, conn := range c.connections {
+		g.Go(func() error {
+			timer := time.After(10 * time.Second)
+			l := conn.AddListener()
+			defer conn.RemoveListener(l)
+		SETREG:
+			conn.Send <- protocol.NewMessage(protocol.CmdInResp, register, false, value)
+			for {
+				select {
+				case <-timer:
+					return fmt.Errorf("timed out attempting to set register %02x", register)
+				case msg, ok := <-l.C:
+					if !ok {
+						return fmt.Errorf("listener channel closed")
+					}
+					if msg.Type == protocol.CmdInBadEncoding {
+						goto SETREG
+					}
+					if msg.Type == protocol.CmdOutSend && msg.Ack == protocol.Ack && msg.Register == register {
+						return nil
+					}
+				}
+			}
+		})
+	}
+	return g.Wait()
 }
 
 // An Option configures the emulator.

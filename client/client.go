@@ -247,7 +247,7 @@ func (c *Client) manage() {
 	defer ml.Stop()
 	for m := range ml.C {
 		switch m.Type {
-		case protocol.InCmdResp:
+		case protocol.CmdInResp:
 			if m.Ack == protocol.Request && m.Register == protocol.SettingsRegister {
 				c.Settings.FromRegister(m.Data)
 			}
