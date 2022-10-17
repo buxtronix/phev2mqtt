@@ -24,7 +24,6 @@ func (s *Connection) manage() {
 					// Establish initial key after 10th ping.
 					s.state = conSecInit
 					s.rekey()
-					s.car.Settings.ResetRegisters()
 				}
 			case protocol.CmdOutMy18StartResp:
 				if msg.Original[2] == 0x0 {
@@ -64,29 +63,20 @@ func (s *Connection) getRegister(r byte) protocol.Register {
 }
 
 func (s *Connection) handleSetRegister(msg *protocol.PhevMessage) {
-	log.Debugf("Incoming command: %s", msg.Reg.String())
 	s.Send <- protocol.NewMessage(protocol.CmdInResp, msg.Register, true, []byte{0x0})
-	return
-}
-
-func (s *Connection) sendSettings() bool {
-	register, done := s.car.Settings.NextRegister()
-	reg := &protocol.RegisterGeneric{Reg: 0x16, Value: register}
-	msg := reg.Encode()
-	msg.Type = protocol.CmdInResp
-	msg.Ack = protocol.Request
-	s.Send <- msg
-	return done
 }
 
 func (s *Connection) sendNextRegister() {
-	if s.registerIndex < 0 {
+	if s.settingsSender != nil {
+		if setting, ok := <-s.settingsSender.C; ok {
+			s.Send <- setting
+		} else {
+			s.settingsSender = nil
+		}
 		return
 	}
-	if s.registerIndex == 0 {
-		if done := s.sendSettings(); !done {
-			return
-		}
+	if s.registerIndex < 0 {
+		return
 	}
 	msg := s.car.Registers[s.registerIndex].Encode()
 	msg.Type = protocol.CmdInResp
@@ -96,8 +86,9 @@ func (s *Connection) sendNextRegister() {
 	s.registerIndex++
 	if s.registerIndex >= len(s.car.Registers) {
 		s.registerIndex = -1
-		s.car.Settings.ResetRegisters()
-		log.Debug("Finished sending registers")
+		log.Debug("Finished sending registers, sending settings")
+		s.settingsSender = s.car.Settings.NewSender()
+		s.settingsSender.Start()
 	}
 }
 

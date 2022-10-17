@@ -46,7 +46,8 @@ type Connection struct {
 
 	state connState
 
-	registerIndex int
+	registerIndex  int
+	settingsSender *protocol.SettingsSender
 }
 
 func (s *Connection) Close() error {

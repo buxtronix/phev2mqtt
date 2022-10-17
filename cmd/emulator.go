@@ -22,9 +22,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// emulateCmd represents the emulate command
-var emulateCmd = &cobra.Command{
-	Use:   "emulate",
+// emulatorCmd represents the emulate command
+var emulatorCmd = &cobra.Command{
+	Use:   "emulator",
 	Short: "Emulate a car, to enable app testing",
 	Long:  `Starts up a service that emulates a car.`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -42,7 +42,7 @@ var emulateCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(emulateCmd)
+	rootCmd.AddCommand(emulatorCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -52,5 +52,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	emulateCmd.PersistentFlags().String("address", ":8080", "Address to listen on")
+	emulatorCmd.PersistentFlags().String("address", ":8080", "Address to listen on")
 }

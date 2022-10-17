@@ -56,6 +56,9 @@ type Client struct {
 	// Send is a channel to send messages to the Phev.
 	Send chan *protocol.PhevMessage
 
+	// Settings are settings for the car.
+	Settings *protocol.Settings
+
 	listeners []*Listener
 	lMu       sync.Mutex
 
@@ -84,6 +87,7 @@ func New(opts ...Option) (*Client, error) {
 	cl := &Client{
 		Recv:      make(chan *protocol.PhevMessage, 5),
 		Send:      make(chan *protocol.PhevMessage, 5),
+		Settings:  &protocol.Settings{},
 		started:   make(chan struct{}, 2),
 		listeners: []*Listener{},
 		address:   DefaultAddress,
@@ -243,6 +247,10 @@ func (c *Client) manage() {
 	defer ml.Stop()
 	for m := range ml.C {
 		switch m.Type {
+		case protocol.InCmdResp:
+			if m.Ack == protocol.Request && m.Register == protocol.SettingsRegister {
+				c.Settings.FromRegister(m.Data)
+			}
 		case protocol.CmdInStartResp:
 			c.Send <- protocol.NewPingRequestMessage(0xa)
 		case protocol.CmdInMy18StartReq:

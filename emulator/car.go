@@ -16,7 +16,7 @@ type Car struct {
 	// Registers are the current registers and settings for Car.
 	Registers []protocol.Register
 	// Settings are the vehicle settings.
-	Settings    *Settings
+	Settings    *protocol.Settings
 	address     string
 	connections []*Connection
 }
@@ -43,6 +43,7 @@ func (c *Car) Begin() error {
 			go svc.Start()
 		}
 	}()
+	log.Debugf("%%PHEV_EMULATOR_START%% Started PHEV emulator, address=%s", c.address)
 	return nil
 }
 
@@ -58,16 +59,21 @@ func AddressOption(address string) func(*Car) {
 
 // NewCar returns a new Car. You get a Car! Everyone gets a Car!
 func NewCar(opts ...Option) (*Car, error) {
-	s, err := NewSettings()
-	if err != nil {
-		return nil, err
-	}
 	c := &Car{
 		Registers: defaultRegisters,
-		Settings:  s,
+		Settings:  &protocol.Settings{},
 	}
 	for _, o := range opts {
 		o(c)
+	}
+	for _, s := range defaultSettings {
+		setting, err := hex.DecodeString(s)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.Settings.FromRegister(setting); err != nil {
+			return nil, err
+		}
 	}
 	return c, nil
 }
@@ -126,4 +132,28 @@ var defaultRegisters = []protocol.Register{
 	mustRegister(0x3, "011563"),
 	&protocol.RegisterBatteryWarning{Warning: 0},
 	&protocol.RegisterWIFISSID{SSID: "REMOTEc0ffee"},
+}
+
+var defaultSettings = []string{
+	"023a003b003c0000",
+	"02e201e301640e00",
+	"02e501a61ea71e00",
+	"026b0e2c002d0000",
+	"022e006f00300000",
+	"0231007206730600",
+	"02b4003506360e00",
+	"02370e3806390000",
+	"023a003b003c0000",
+	"024106420603fe00",
+	"02c41e850e861e00",
+	"02473ec81e093f00",
+	"02ca018bfe4c4300",
+	"024d1e0e064f0600",
+	"0210121106d20100",
+	"02d301d401551e00",
+	"02161ed701d80100",
+	"0219061a23db0100",
+	"02dc015d065e0600",
+	"021f00600ee10100",
+	"02e801e9016a3e00",
 }
