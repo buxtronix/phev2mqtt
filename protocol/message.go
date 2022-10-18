@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 const (
@@ -175,6 +176,8 @@ func (p *PhevMessage) DecodeFromBytes(data []byte, key *SecurityKey) error {
 			p.Reg = new(RegisterVIN)
 		case SettingsRegister:
 			p.Reg = new(RegisterSettings)
+		case TimeRegister:
+			p.Reg = new(RegisterTime)
 		case ECUVersionRegister:
 			p.Reg = new(RegisterECUVersion)
 		case BatteryLevelRegister:
@@ -242,7 +245,30 @@ func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 	return msgs
 }
 
+func encodeTime(t time.Time) []byte {
+	return []byte{
+		byte(t.Year() - 2000),
+		byte(t.Month()),
+		byte(t.Day()),
+		byte(t.Hour()),
+		byte(t.Minute()),
+		byte(t.Second()),
+		byte(t.Weekday())}
+}
+
+func decodeTime(m []byte) time.Time {
+	return time.Date(
+		2000+int(m[0]),   // Year
+		time.Month(m[1]), // Month
+		int(m[2]),        // Day of month
+		int(m[3]),        // Hour
+		int(m[4]),        // Minute
+		int(m[5]),        // Second
+		0, time.Local)
+}
+
 const (
+	TimeRegister           = 0x12
 	VINRegister            = 0x15
 	SettingsRegister       = 0x16
 	ECUVersionRegister     = 0xc0
@@ -293,6 +319,38 @@ func (r *RegisterGeneric) Register() byte {
 	return r.Reg
 }
 
+type RegisterTime struct {
+	Time time.Time
+	raw  []byte
+}
+
+func (r *RegisterTime) Decode(m *PhevMessage) {
+	if len(m.Data) != 7 {
+		return
+	}
+	r.Time = decodeTime(m.Data)
+	r.raw = m.Data
+}
+
+func (r *RegisterTime) Encode() *PhevMessage {
+	return &PhevMessage{
+		Register: r.Register(),
+		Data:     encodeTime(r.Time),
+	}
+}
+
+func (r *RegisterTime) Raw() string {
+	return hex.EncodeToString(r.raw)
+}
+
+func (r *RegisterTime) String() string {
+	return r.Time.String()
+}
+
+func (r *RegisterTime) Register() byte {
+	return TimeRegister
+}
+
 type RegisterSettings struct {
 	register byte
 	raw      []byte
@@ -316,7 +374,7 @@ func (r *RegisterSettings) Raw() string {
 
 func (r *RegisterSettings) String() string {
 	value := binary.LittleEndian.Uint64(r.raw)
-	return fmt.Sprintf("Car Settings: %16x", value)
+	return fmt.Sprintf("Car Settings: %016x", value)
 }
 
 func (r *RegisterSettings) Register() byte {

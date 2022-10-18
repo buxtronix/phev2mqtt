@@ -3,6 +3,7 @@ package emulator
 import (
 	"github.com/buxtronix/phev2mqtt/protocol"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 func (s *Connection) manage() {
@@ -63,7 +64,15 @@ func (s *Connection) getRegister(r byte) protocol.Register {
 }
 
 func (s *Connection) handleSetRegister(msg *protocol.PhevMessage) {
+	// Ack the message that came in.
 	s.Send <- protocol.NewMessage(protocol.CmdInResp, msg.Register, true, []byte{0x0})
+	switch msg.Register {
+	case 0x05:
+		s.Send <- protocol.NewMessage(protocol.CmdInResp, protocol.TimeRegister, false, msg.Data)
+		time.Sleep(20 * time.Millisecond)
+		s.Send <- protocol.NewMessage(protocol.CmdInResp, protocol.BatteryLevelRegister, false, []byte{0x50, 0x00, 0x00, 0x00})
+	}
+
 }
 
 func (s *Connection) sendNextRegister() {
