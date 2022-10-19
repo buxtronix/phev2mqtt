@@ -262,7 +262,7 @@ There seem to be two types of register layout (A/B).
 |0x17      | ??                           | 1      | 103       | [1]                           |                                     |
 |0x18      | ??                           | 4 / 16 | 276 / 104 | [1,1,2] / [5,3,5,3]           |                                     |
 |0x19      | ??                           | 9      | 120       | [1,5,3]                       |                                     |
-|0x1a      | ??                           | 5 / 2  | 129       | [1,1,1,1,1] / [1,1]           |                                     |
+|0x1a      | Ignition status              | 5 / 2  | 129       | [1,1,1,1,1] / [1,1]           |                                     |
 |0x1b      | ??                           | 1      | 134       | [1]                           |                                     |
 |0x1c      | AirCon Mode                  | 1      | 136       | [1]                           |                                     |
 |0x1d      | Battery Level / light status | 4      | 137       | [1,1,1,1]                     |                                     |
@@ -312,6 +312,15 @@ Vin info and regstration status.
 |19 | Number of registered clients |
 
 ### 0x17 - Charge timer state
+
+### 0x1a - Ignition status
+
+Probably some other info, but at least ignition status is shown.
+
+| Byte | Description |
+|--|--|
+| 0 | Ignition state. 0x0=off 0x3=acc 0x4=on |
+| 1-4 | Unknown, currently only seen as 0x0 |
 
 ### 0x1c - Aircon mode
 

@@ -21,7 +21,7 @@ Tested against a MY18 vehicle.
  * Near-instant response to commands
  * *Only tested on a MY18 Phev*
 
-Also includes some debugging utilities.
+Also includes some debugging utilities, and a vehicle emulator.
 
 ## Requirements
 
@@ -243,3 +243,22 @@ the packets with original timings which can help pinpoint app events.
 
 You can also specify *tcp:<host>:<port>* which will connect to that host/port
 over TCP and decode that traffic - useful when live sniffing to a TCP service.
+
+### Vehicle emulator
+
+There is an emulator built in which can be used to test functionality without needing
+a real car (and also reduces risk of putting your car into weird states).
+
+Start it with `phev2mqtt emulator` and then you can point a client at it.
+
+The official app will always try to connect to IP `192.168.8.46`, so you'll need
+to ensure you run `phev2mqtt` on a machine with this IP and which you can
+reach via WIFI. The author uses a Raspberry Pi setup as an AP (using hostapd)
+and runs `phev2mqtt` on it, though you could also tunnel the TCP connection to
+a dev machine.
+
+The app should successfully be able to register with the emulator (it might take
+a couple of goes).
+
+Any settings sent by the app won't actually change state for now, but it can
+be useful for sniffing the app.

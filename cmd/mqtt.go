@@ -142,7 +142,7 @@ func (m *mqttClient) topic(topic string) string {
 func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	var err error
 
-	m.enabled = true  // Default.
+	m.enabled = true // Default.
 	mqttServer, _ := cmd.Flags().GetString("mqtt_server")
 	mqttUsername, _ := cmd.Flags().GetString("mqtt_username")
 	mqttPassword, _ := cmd.Flags().GetString("mqtt_password")
@@ -177,6 +177,9 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		return token.Error()
 	}
 	if token := m.client.Subscribe(m.topic("/connection"), 0, nil); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	if token := m.client.Subscribe(m.topic("/settings/#"), 0, nil); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 
@@ -304,6 +307,10 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 			log.Infof("Error setting register 0x1b: %v", err)
 			return
 		}
+	} else if msg.Topic() == m.topic("/settings/dump") {
+		log.Infof("CURRENT_SETTINGS:")
+		log.Infof("\n%s", m.phev.Settings.Dump())
+		m.phev.Settings.Clear()
 	} else {
 		log.Errorf("Unknown topic from mqtt: %s", msg.Topic())
 	}
