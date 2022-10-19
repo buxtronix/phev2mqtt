@@ -241,4 +241,5 @@ between 'info', 'debug' and 'trace' for more details.
 Additionally, the flag '--latency' will use the PCAP packet timestamps to decode
 the packets with original timings which can help pinpoint app events.
 
-
+You can also specify *tcp:<host>:<port>* which will connect to that host/port
+over TCP and decode that traffic - useful when live sniffing to a TCP service.

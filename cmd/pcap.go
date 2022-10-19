@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"encoding/hex"
+	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -37,10 +39,31 @@ var pcapCmd = &cobra.Command{
 such as Wireshark.
 
 The decoder filters TCP packets to and from port 8080.
+
+This can also read files from a TCP connection. Specify
+"tcp:<address>:<port>". This can be useful for realtime monitoring
+via Android (https://wladimir-tm4pda.github.io/porting/tcpdump.html)
 `,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		handle, err := pcap.OpenOffline(args[0])
+		var handle *pcap.Handle
+		var err error
+		if parts := strings.Split(args[0], ":"); len(parts) == 3 && parts[0] == "tcp" {
+			conn, err := net.Dial("tcp", fmt.Sprintf("%s:%s", parts[1], parts[2]))
+			if err != nil {
+				log.Fatal(err)
+			}
+			if tcpconn, ok := conn.(*net.TCPConn); ok {
+				if tc, err := tcpconn.File(); err == nil {
+					handle, err = pcap.OpenOfflineFile(tc)
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+			}
+		} else {
+			handle, err = pcap.OpenOffline(args[0])
+		}
 		if err != nil {
 			log.Fatal(err)
 		}
