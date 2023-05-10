@@ -126,7 +126,7 @@ func (p *PhevMessage) EncodeToBytes(key *SecurityKey) []byte {
 	data = append(data, Checksum(data))
 	var xor byte
 	switch p.Type {
-	case CmdInMy18StartReq, CmdOutMy18StartResp:
+	case CmdInMy18StartReq, CmdOutMy18StartResp, CmdInMy14StartReq, CmdOutMy14StartResp:
 		// No xor/key for these messages.
 	case CmdOutSend:
 		// Use then increment send key.
