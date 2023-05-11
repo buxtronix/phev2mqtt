@@ -189,7 +189,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 			}
 			// Publish as offline if last connection was >30s ago.
 			if time.Now().Sub(m.lastConnect) > 30*time.Second {
-				m.publish("/available", "offline")
+				m.client.Publish(m.topic("/available"), 0, true, "offline")
 			}
 			// Restart Wifi interface if > wifi_restart_time.
 			if wifiRestartTime > 0 && time.Now().Sub(m.lastConnect) > wifiRestartTime {
@@ -239,12 +239,12 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 		case "off":
 			m.enabled = false
 			m.phev.Close()
-			m.publish("/available", "offline")
+			m.client.Publish(m.topic("/available"), 0, true, "offline")
 		case "on":
 			m.enabled = true
 		case "restart":
 			m.enabled = true
-			m.publish("/available", "offline")
+			m.client.Publish(m.topic("/available"), 0, true, "offline")
 			m.phev.Close()
 		}
 	} else if msg.Topic() == m.topic("/set/parkinglights") {
@@ -324,7 +324,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	if err := m.phev.Start(); err != nil {
 		return err
 	}
-	m.publish("/available", "online")
+	m.client.Publish(m.topic("/available"), 0, true, "online")
 	defer func() {
 		m.lastConnect = time.Now()
 	}()
