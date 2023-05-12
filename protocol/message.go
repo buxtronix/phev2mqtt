@@ -76,7 +76,7 @@ func (p *PhevMessage) ShortForm() string {
 		return fmt.Sprintf("START SEND18  (orig  %s)", hex.EncodeToString(p.Original))
 
 	case CmdInStartResp:
-		return fmt.Sprintf("START RESP18  (orig: %s)", hex.EncodeToString(p.Original))
+		return fmt.Sprintf("START RESP    (orig: %s)", hex.EncodeToString(p.Original))
 
 	case CmdOutSend:
 		if p.Ack == Ack {
@@ -94,13 +94,13 @@ func (p *PhevMessage) ShortForm() string {
 		return fmt.Sprintf("START RECV18  (orig %s)", hex.EncodeToString(p.Original))
 
 	case CmdOutMy18StartResp:
-		return fmt.Sprintf("START SEND    (orig %s)", hex.EncodeToString(p.Original))
+		return fmt.Sprintf("START SEND18  (orig %s)", hex.EncodeToString(p.Original))
 
 	case CmdInMy14StartReq:
-		return fmt.Sprintf("START RECV 14 (orig %s)", hex.EncodeToString(p.Original))
+		return fmt.Sprintf("START RECV14  (orig %s)", hex.EncodeToString(p.Original))
 
 	case CmdOutMy14StartResp:
-		return fmt.Sprintf("START SEND 14 (orig %s)", hex.EncodeToString(p.Original))
+		return fmt.Sprintf("START SEND14  (orig %s)", hex.EncodeToString(p.Original))
 
 	case CmdInBadEncoding:
 		return fmt.Sprintf("BAD ENCODING  (exp: 0x%02x)", p.Data[0])
