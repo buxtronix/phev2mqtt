@@ -234,15 +234,18 @@ func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 }
 
 const (
-	VINRegister            = 0x15
-	ECUVersionRegister     = 0xc0
-	BatteryLevelRegister   = 0x1d
-	BatteryWarningRegister = 0x02
-	DoorStatusRegister     = 0x24
-	ChargeStatusRegister   = 0x1f
-	ACOperStatusRegister   = 0x1a
-	ACModeRegister         = 0x1c
-	ChargePlugRegister     = 0x1e
+	VINRegister              = 0x15
+	ECUVersionRegister       = 0xc0
+	BatteryLevelRegister     = 0x1d
+	BatteryWarningRegister   = 0x02
+	DoorStatusRegister       = 0x24
+	ChargeStatusRegister     = 0x1f
+	ACOperStatusRegister     = 0x1a
+	SetACEnabledRegisterMY14 = 0x04
+	SetACModeRegisterMY14    = 0x02
+	SetACModeRegisterMY18    = 0x1b
+	ACModeRegister           = 0x1c
+	ChargePlugRegister       = 0x1e
 )
 
 type Register interface {
