@@ -17,6 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/buxtronix/phev2mqtt/client"
@@ -210,7 +211,7 @@ func (m *mqttClient) publish(topic, payload string) {
 	}
 }
 
-func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
+func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Message) {
 	log.Infof("Topic: [%s] Payload: [%s]", msg.Topic(), msg.Payload())
 
 	topicParts := strings.Split(msg.Topic(), "/")
@@ -279,7 +280,6 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 		modeMap := map[string]byte{"off": 0x0, "OFF": 0x0, "cool": 0x1, "heat": 0x2, "windscreen": 0x3, "mode": 0x4}
 		durMap := map[string]byte{"10": 0x0, "20": 0x10, "30": 0x20, "on": 0x0, "off": 0x0}
 		parts := strings.Split(topic, "/")
-		state := byte(0x02) // initial.
 		mode, ok := modeMap[parts[len(parts)-1]]
 		if !ok {
 			log.Errorf("Unknown climate mode: %s", parts[len(parts)-1])
@@ -297,12 +297,36 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 			log.Errorf("Unknown climate duration: %s", payload)
 			return
 		}
-		if mode == 0x0 {
-			state = 0x1
-		}
-		if err := m.phev.SetRegister(0x1b, []byte{state, mode, duration, 0x0}); err != nil {
-			log.Infof("Error setting register 0x1b: %v", err)
-			return
+
+		if m.phev.ModelYear == client.ModelYear14 {
+			// Set the AC mode first
+			registerPayload := bytes.Repeat([]byte{0xff}, 15)
+			registerPayload[0] = 0x0
+			registerPayload[1] = 0x0
+			registerPayload[6] = mode | duration
+			if err := m.phev.SetRegister(protocol.SetACModeRegisterMY14, registerPayload); err != nil {
+				log.Infof("Error setting AC mode: %v", err)
+				return
+			}
+
+			// Then, enable/disable the AC
+			acEnabled := byte(0x02)
+			if mode == 0x0 {
+				acEnabled = 0x01
+			}
+			if err := m.phev.SetRegister(protocol.SetACEnabledRegisterMY14, []byte{acEnabled}); err != nil {
+				log.Infof("Error setting AC enabled state: %v", err)
+				return
+			}
+		} else if m.phev.ModelYear == client.ModelYear18 {
+			state := byte(0x02)
+			if mode == 0x0 {
+				state = 0x1
+			}
+			if err := m.phev.SetRegister(protocol.SetACModeRegisterMY18, []byte{state, mode, duration, 0x0}); err != nil {
+				log.Infof("Error setting AC mode: %v", err)
+				return
+			}
 		}
 	} else {
 		log.Errorf("Unknown topic from mqtt: %s", msg.Topic())
