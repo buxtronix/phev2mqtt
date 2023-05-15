@@ -457,7 +457,7 @@ func (r *RegisterChargeStatus) Decode(m *PhevMessage) {
 	r.Charging = m.Data[0] == 0x1
 	r.Remaining = 0
 	if m.Data[2] != 0xff {
-		r.Remaining = int((m.Data[2] << 8) | m.Data[1])
+		r.Remaining = int(m.Data[2])<<8 | int(m.Data[1])
 	}
 	r.raw = m.Data
 }
