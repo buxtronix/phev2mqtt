@@ -483,10 +483,11 @@ type RegisterACOperStatus struct {
 }
 
 func (r *RegisterACOperStatus) Decode(m *PhevMessage) {
-	if m.Register != ACOperStatusRegister || len(m.Data) != 5 {
+	// MY'18 data length is 5 bytes, MY'14 uses 2 bytes
+	// We only decode the operating state in byte 2
+	if m.Register != ACOperStatusRegister || len(m.Data) < 2 {
 		return
 	}
-	// reg 0x1a data 0001000000 // on
 	r.Operating = m.Data[1] == 1
 	r.raw = m.Data
 }
@@ -507,15 +508,16 @@ func (r *RegisterACOperStatus) Register() byte {
 }
 
 type RegisterACMode struct {
-	Mode string
-	raw  []byte
+	Mode     string
+	Duration uint8
+	raw      []byte
 }
 
 func (r *RegisterACMode) Decode(m *PhevMessage) {
 	if len(m.Data) != 1 {
 		return
 	}
-	switch m.Data[0] {
+	switch m.Data[0] & 0x0f {
 	case 0:
 		r.Mode = "unknown"
 	case 1:
@@ -524,6 +526,14 @@ func (r *RegisterACMode) Decode(m *PhevMessage) {
 		r.Mode = "heat"
 	case 3:
 		r.Mode = "windscreen"
+	}
+	switch m.Data[0] & 0xf0 {
+	case 0x00:
+		r.Duration = 10
+	case 0x10:
+		r.Duration = 20
+	case 0x20:
+		r.Duration = 30
 	}
 	r.raw = m.Data
 }
