@@ -184,6 +184,8 @@ func (p *PhevMessage) DecodeFromBytes(data []byte, key *SecurityKey) error {
 			p.Reg = new(RegisterACOperStatus)
 		case ACModeRegister:
 			p.Reg = new(RegisterACMode)
+		case LightStatusRegister:
+			p.Reg = new(RegisterLightStatus)
 		default:
 			p.Reg = new(RegisterGeneric)
 		}
@@ -234,18 +236,19 @@ func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 }
 
 const (
-	VINRegister              = 0x15
-	ECUVersionRegister       = 0xc0
-	BatteryLevelRegister     = 0x1d
 	BatteryWarningRegister   = 0x02
-	DoorStatusRegister       = 0x24
-	ChargeStatusRegister     = 0x1f
-	ACOperStatusRegister     = 0x1a
-	SetACEnabledRegisterMY14 = 0x04
 	SetACModeRegisterMY14    = 0x02
+	SetACEnabledRegisterMY14 = 0x04
+	VINRegister              = 0x15
+	ACOperStatusRegister     = 0x1a
 	SetACModeRegisterMY18    = 0x1b
 	ACModeRegister           = 0x1c
+	BatteryLevelRegister     = 0x1d
 	ChargePlugRegister       = 0x1e
+	ChargeStatusRegister     = 0x1f
+	LightStatusRegister      = 0x23
+	DoorStatusRegister       = 0x24
+	ECUVersionRegister       = 0xc0
 )
 
 type Register interface {
@@ -576,4 +579,34 @@ func (r *RegisterChargePlug) String() string {
 
 func (r *RegisterChargePlug) Register() byte {
 	return ChargePlugRegister
+}
+
+
+type RegisterLightStatus struct {
+	Interior      bool
+	Hazard        bool
+	raw           []byte
+}
+
+
+func (r *RegisterLightStatus) Decode(m *PhevMessage) {
+	if len(m.Data) != 5 {
+		return
+	}
+	// Switches between 2 for Off and 1 for On.
+	r.Interior = m.Data[4] & 0b11 == 1;
+	r.Hazard = m.Data[3] & 0b11 == 1;
+	r.raw = m.Data
+}
+
+func (r *RegisterLightStatus) Raw() string {
+	return hex.EncodeToString(r.raw)
+}
+
+func (r *RegisterLightStatus) String() string {
+    return fmt.Sprintf("Hazard lights: %t; Interior lights: %t.", r.Hazard, r.Interior)
+}
+
+func (r *RegisterLightStatus) Register() byte {
+	return LightStatusRegister
 }

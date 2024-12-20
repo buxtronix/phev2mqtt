@@ -120,6 +120,8 @@ The following topics are published:
 | phev/door/boot | State of doors. *closed* or *open* |
 | phev/lights/parking | Parking lights. *on* or *off* |
 | phev/lights/head | Head lights. *on* or *off* |
+| phev/lights/hazard | Hazard lights. *on* or *off* |
+| phev/lights/interior | Interior lights. *on* or *off* |
 | phev/vin | Discovered VIN of the car |
 | phev/registrations | Number of wifi clients registered to the car |
 
