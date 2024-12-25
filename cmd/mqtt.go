@@ -126,6 +126,7 @@ type mqttClient struct {
 
 	phev        *client.Client
 	lastConnect time.Time
+	everPublishedBatteryLevel bool
 
 	prefix string
 
@@ -349,6 +350,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 		return err
 	}
 	m.client.Publish(m.topic("/available"), 0, true, "online")
+	m.everPublishedBatteryLevel = false
 	defer func() {
 		m.lastConnect = time.Now()
 	}()
@@ -440,7 +442,12 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		m.publish("/door/boot", boolOpen[reg.Boot])
 		m.publish("/lights/head", boolOnOff[reg.Headlights])
 	case *protocol.RegisterBatteryLevel:
-		m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
+		if !m.everPublishedBatteryLevel || reg.Level > 5 {
+			m.everPublishedBatteryLevel = true
+			m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
+		} else {
+			log.Debugf("Ignoring battery level reading: %v", reg.Level)
+		}
 		m.publish("/lights/parking", boolOnOff[reg.ParkingLights])
 	case *protocol.RegisterChargePlug:
 		if reg.Connected {
