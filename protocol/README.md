@@ -331,17 +331,20 @@ __must be converted from big endian to little endian__ to be useful
 | 18       | off                                         |
 | 19-23    | Unknown (unused?)                           |
 
-### 0x10 - Aircon status
+### 0x10 - Preconditioning status
 
 3 bytes.
 
 | Byte(s) | Description |
-|--|--|
-|0 | Unknown |
-| 1 | AC operating [0=off 1=on] |
+|---------|-------------|
+| 0 | Preconditioning state [0 = off, 2 = on, 3 = cancelled by open door/low battery] |
+| 1 | Unknown |
 | 2 | Unknown |
 
 02b00b = windscreen on/10min
+026e09 = windscreen on/10min (on another vehicle)
+030000 = after door openining
+000000 = precondition not active/terminated normally (e.g. timer elapsed.)
 
 ### 0x12 - Car time sync
 
@@ -446,6 +449,7 @@ A string with the software version of the ECU.
 | 0xe      | Save settings??            | Sent after 0xf command |
 | 0xf      | Update settings            |                        |
 | 0x10     | Register Wifi client       | 0x1                    |
+| 0x13     | Reset PreAC state          | 0x1                    |
 | 0x15     | Unregister Wifi client     | 0x1                    |
 | 0x1a     | Set climate timer          | See below              |
 | 0x1b     | Set climate state          | See below              |

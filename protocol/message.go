@@ -180,8 +180,8 @@ func (p *PhevMessage) DecodeFromBytes(data []byte, key *SecurityKey) error {
 			p.Reg = new(RegisterChargePlug)
 		case ChargeStatusRegister:
 			p.Reg = new(RegisterChargeStatus)
-		case ACOperStatusRegister:
-			p.Reg = new(RegisterACOperStatus)
+		case PreACStateRegister:
+			p.Reg = new(RegisterPreACState)
 		case ACModeRegister:
 			p.Reg = new(RegisterACMode)
 		default:
@@ -234,18 +234,20 @@ func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 }
 
 const (
-	VINRegister              = 0x15
-	ECUVersionRegister       = 0xc0
-	BatteryLevelRegister     = 0x1d
 	BatteryWarningRegister   = 0x02
-	DoorStatusRegister       = 0x24
-	ChargeStatusRegister     = 0x1f
-	ACOperStatusRegister     = 0x1a
-	SetACEnabledRegisterMY14 = 0x04
 	SetACModeRegisterMY14    = 0x02
+	SetACEnabledRegisterMY14 = 0x04
+	PreACStateRegister       = 0x10
+	SetAckPreACTermRegister  = 0x13
+	VINRegister              = 0x15
 	SetACModeRegisterMY18    = 0x1b
 	ACModeRegister           = 0x1c
+	BatteryLevelRegister     = 0x1d
 	ChargePlugRegister       = 0x1e
+	ChargeStatusRegister     = 0x1f
+	LightStatusRegister      = 0x23
+	DoorStatusRegister       = 0x24
+	ECUVersionRegister       = 0xc0
 )
 
 type Register interface {
@@ -477,34 +479,42 @@ func (r *RegisterChargeStatus) Register() byte {
 	return ChargeStatusRegister
 }
 
-type RegisterACOperStatus struct {
-	Operating bool
+type PreACState int8
+
+const (
+    PreACOff PreACState = 0
+    PreACOn PreACState = 2
+    PreACTerminated PreACState = 3
+)
+
+type RegisterPreACState struct {
+	State     PreACState
 	raw       []byte
 }
 
-func (r *RegisterACOperStatus) Decode(m *PhevMessage) {
-	// MY'18 data length is 5 bytes, MY'14 uses 2 bytes
-	// We only decode the operating state in byte 2
-	if m.Register != ACOperStatusRegister || len(m.Data) < 2 {
+func (r *RegisterPreACState) Decode(m *PhevMessage) {
+	if len(m.Data) < 3 {
 		return
 	}
-	r.Operating = m.Data[1] == 1
+	r.State = PreACState(m.Data[0])
 	r.raw = m.Data
 }
 
-func (r *RegisterACOperStatus) Raw() string {
+func (r *RegisterPreACState) Raw() string {
 	return hex.EncodeToString(r.raw)
 }
 
-func (r *RegisterACOperStatus) String() string {
-	if r.Operating {
-		return "AC on"
+func (r *RegisterPreACState) String() string {
+	switch r.State {
+	case PreACOff: return "Pre-AC off"
+	case PreACOn: return "Pre-AC on"
+	case PreACTerminated: return "Pre-AC terminated (door opened or battery low?)"
+	default: return fmt.Sprintf("Pre-AC: unknown (%v)", r.State)
 	}
-	return "AC off"
 }
 
-func (r *RegisterACOperStatus) Register() byte {
-	return ACOperStatusRegister
+func (r *RegisterPreACState) Register() byte {
+	return PreACStateRegister
 }
 
 type RegisterACMode struct {

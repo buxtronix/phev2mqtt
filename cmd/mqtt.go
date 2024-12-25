@@ -52,28 +52,43 @@ more details on the topics.
 // Tracks complete climate state as on and mode are separately
 // sent by the car.
 type climate struct {
-	state *bool
+	state *protocol.PreACState
 	mode  *string
 }
 
 func (c *climate) setMode(m string) {
 	c.mode = &m
 }
-func (c *climate) setState(state bool) {
+func (c *climate) setState(state protocol.PreACState) {
 	c.state = &state
 }
 
 func (c *climate) mqttStates() map[string]string {
 	m := map[string]string{
+		"/climate/state":      "off",
 		"/climate/cool":       "off",
 		"/climate/heat":       "off",
 		"/climate/windscreen": "off",
-		"/climate/mode":       "off",
 	}
-	if !c.ready() || !*c.state {
+	if c.mode == nil || c.state == nil {
 		return m
 	}
-	m["/climate/mode"] = *c.mode
+	switch *c.state {
+	case protocol.PreACOn: m["/climate/state"] = *c.mode
+	case protocol.PreACOff: {
+		m["/climate/state"] = "off"
+		return m
+	}
+	case protocol.PreACTerminated: {
+		m["/climate/state"] = "terminated"
+		return m
+	}
+	default: {
+		m["/climate/state"] = "unknown"
+		return m
+	}
+	}
+	m["/climate/state"] = *c.mode
 	switch *c.mode {
 	case "cool":
 		m["/climate/cool"] = "on"
@@ -83,10 +98,6 @@ func (c *climate) mqttStates() map[string]string {
 		m["/climate/windscreen"] = "on"
 	}
 	return m
-}
-
-func (c *climate) ready() bool {
-	return c.mode != nil && c.state != nil
 }
 
 var lastWifiRestart time.Time
@@ -273,6 +284,14 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 			log.Infof("Error setting register 0x17: %v", err)
 			return
 		}
+	} else if strings.HasPrefix(msg.Topic(), m.topic("/set/climate/state")) {
+		payload := strings.ToLower(string(msg.Payload()))
+		if payload == "reset" {
+			if err := m.phev.SetRegister(protocol.SetAckPreACTermRegister, []byte{0x1}); err != nil {
+				log.Infof("Error acknowledging Pre-AC termination: %v", err)
+				return
+			}
+		}
 	} else if strings.HasPrefix(msg.Topic(), m.topic("/set/climate/")) {
 		topic := msg.Topic()
 		payload := strings.ToLower(string(msg.Payload()))
@@ -420,8 +439,8 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		for t, p := range m.climate.mqttStates() {
 			m.publish(t, p)
 		}
-	case *protocol.RegisterACOperStatus:
-		m.climate.setState(reg.Operating)
+	case *protocol.RegisterPreACState:
+		m.climate.setState(reg.State)
 		for t, p := range m.climate.mqttStates() {
 			m.publish(t, p)
 		}
