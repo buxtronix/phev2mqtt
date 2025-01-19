@@ -125,8 +125,6 @@ func processPayload(cmd *cobra.Command, data []byte, dir string) {
 	}
 }
 
-var securityKey *protocol.SecurityKey
-
 var regs = map[byte]string{}
 
 var pings bool
