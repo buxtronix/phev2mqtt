@@ -182,6 +182,8 @@ func (p *PhevMessage) DecodeFromBytes(data []byte, key *SecurityKey) error {
 			p.Reg = new(RegisterChargeStatus)
 		case PreACStateRegister:
 			p.Reg = new(RegisterPreACState)
+		case ACOperStatusRegister:
+			p.Reg = new(RegisterACOperStatus)
 		case ACModeRegister:
 			p.Reg = new(RegisterACMode)
 		case LightStatusRegister:
@@ -496,7 +498,9 @@ type RegisterPreACState struct {
 }
 
 func (r *RegisterPreACState) Decode(m *PhevMessage) {
-	if len(m.Data) < 3 {
+	// MY'18 data length is 3 bytes, MY'14 uses 1 byte
+	// We only decode the operating state in 0th byte
+	if len(m.Data) < 1 {
 		return
 	}
 	r.State = PreACState(m.Data[0])
@@ -518,6 +522,36 @@ func (r *RegisterPreACState) String() string {
 
 func (r *RegisterPreACState) Register() byte {
 	return PreACStateRegister
+}
+
+type RegisterACOperStatus struct {
+	Operating bool
+	raw       []byte
+}
+
+func (r *RegisterACOperStatus) Decode(m *PhevMessage) {
+	// MY'18 data length is 5 bytes, MY'14 uses 2 bytes
+	// We only decode the operating state in byte 2
+	if m.Register != ACOperStatusRegister || len(m.Data) < 2 {
+		return
+	}
+	r.Operating = m.Data[1] == 1
+	r.raw = m.Data
+}
+
+func (r *RegisterACOperStatus) Raw() string {
+	return hex.EncodeToString(r.raw)
+}
+
+func (r *RegisterACOperStatus) String() string {
+	if r.Operating {
+		return "AC on"
+	}
+	return "AC off"
+}
+
+func (r *RegisterACOperStatus) Register() byte {
+	return ACOperStatusRegister
 }
 
 type RegisterACMode struct {
