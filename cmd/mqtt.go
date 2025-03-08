@@ -52,6 +52,11 @@ more details on the topics.
 // Tracks complete climate state as on and mode are separately
 // sent by the car.
 type climate struct {
+	// PreACStateRegister provides more information but might not work on all models.
+	//
+	// As soon as we get a single PreACStateRegister report, we probably can ignore the simpler
+	// ACOperStatusRegister from that point on. If we didn't you'd see duplicate reports over MQTT.
+	ignoreACOperStatusRegister bool
 	state *protocol.PreACState
 	mode  *string
 }
@@ -441,7 +446,19 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		for t, p := range m.climate.mqttStates() {
 			m.publish(t, p)
 		}
+	case *protocol.RegisterACOperStatus:
+		if !m.climate.ignoreACOperStatusRegister {
+			if reg.Operating {
+				m.climate.setState(protocol.PreACOn)
+			} else {
+				m.climate.setState(protocol.PreACOff)
+			}
+			for t, p := range m.climate.mqttStates() {
+				m.publish(t, p)
+			}
+		}
 	case *protocol.RegisterPreACState:
+		m.climate.ignoreACOperStatusRegister = true;
 		m.climate.setState(reg.State)
 		for t, p := range m.climate.mqttStates() {
 			m.publish(t, p)
