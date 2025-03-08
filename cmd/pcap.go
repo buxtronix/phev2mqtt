@@ -14,6 +14,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
+
+//go:build pcap
+
 package cmd
 
 import (
@@ -121,8 +124,6 @@ func processPayload(cmd *cobra.Command, data []byte, dir string) {
 		log.Infof("%s [%02x] %s", dir, msg.Xor, msg.ShortForm())
 	}
 }
-
-var securityKey *protocol.SecurityKey
 
 var regs = map[byte]string{}
 

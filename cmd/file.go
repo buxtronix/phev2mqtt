@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var securityKey *protocol.SecurityKey
+
 // fileCmd represents the file command
 var fileCmd = &cobra.Command{
 	Use:   "file",
