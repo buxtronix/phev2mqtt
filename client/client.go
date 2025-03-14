@@ -49,6 +49,14 @@ func (l *Listener) ProcessStop() bool {
 	return false
 }
 
+type ModelYear int64
+
+const (
+	ModelYearUnknown ModelYear = iota
+	ModelYear14
+	ModelYear18
+)
+
 // A Client is a TCP client to a Phev.
 type Client struct {
 	// Recv is a channel where incoming messages from the Phev are sent.
@@ -68,6 +76,9 @@ type Client struct {
 	started chan struct{}
 
 	key *protocol.SecurityKey
+
+	// Keep track of the model year so we can use the correct registers
+	ModelYear ModelYear
 
 	closed bool
 }
@@ -92,6 +103,7 @@ func New(opts ...Option) (*Client, error) {
 		listeners: []*Listener{},
 		address:   DefaultAddress,
 		key:       &protocol.SecurityKey{},
+		ModelYear: ModelYearUnknown,
 	}
 	for _, o := range opts {
 		o(cl)
@@ -254,6 +266,7 @@ func (c *Client) manage() {
 		case protocol.CmdInStartResp:
 			c.Send <- protocol.NewPingRequestMessage(0xa)
 		case protocol.CmdInMy18StartReq:
+			c.ModelYear = ModelYear18
 			c.Send <- &protocol.PhevMessage{
 				Type:     protocol.CmdOutMy18StartResp,
 				Register: 0x1,
@@ -264,6 +277,7 @@ func (c *Client) manage() {
 			log.Debug("%%PHEV_START18_RECV%%")
 			c.started <- struct{}{}
 		case protocol.CmdInMy14StartReq:
+			c.ModelYear = ModelYear14
 			c.Send <- &protocol.PhevMessage{
 				Type:     protocol.CmdOutMy14StartResp,
 				Register: 0x1,

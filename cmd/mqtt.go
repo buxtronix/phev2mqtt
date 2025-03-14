@@ -17,6 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/buxtronix/phev2mqtt/client"
@@ -51,28 +52,43 @@ more details on the topics.
 // Tracks complete climate state as on and mode are separately
 // sent by the car.
 type climate struct {
-	state *bool
+	state *protocol.PreACState
 	mode  *string
 }
 
 func (c *climate) setMode(m string) {
 	c.mode = &m
 }
-func (c *climate) setState(state bool) {
+func (c *climate) setState(state protocol.PreACState) {
 	c.state = &state
 }
 
 func (c *climate) mqttStates() map[string]string {
 	m := map[string]string{
+		"/climate/state":      "off",
 		"/climate/cool":       "off",
 		"/climate/heat":       "off",
 		"/climate/windscreen": "off",
-		"/climate/mode":       "off",
 	}
-	if !c.ready() || !*c.state {
+	if c.mode == nil || c.state == nil {
 		return m
 	}
-	m["/climate/mode"] = *c.mode
+	switch *c.state {
+	case protocol.PreACOn: m["/climate/state"] = *c.mode
+	case protocol.PreACOff: {
+		m["/climate/state"] = "off"
+		return m
+	}
+	case protocol.PreACTerminated: {
+		m["/climate/state"] = "terminated"
+		return m
+	}
+	default: {
+		m["/climate/state"] = "unknown"
+		return m
+	}
+	}
+	m["/climate/state"] = *c.mode
 	switch *c.mode {
 	case "cool":
 		m["/climate/cool"] = "on"
@@ -82,10 +98,6 @@ func (c *climate) mqttStates() map[string]string {
 		m["/climate/windscreen"] = "on"
 	}
 	return m
-}
-
-func (c *climate) ready() bool {
-	return c.mode != nil && c.state != nil
 }
 
 var lastWifiRestart time.Time
@@ -125,6 +137,7 @@ type mqttClient struct {
 
 	phev        *client.Client
 	lastConnect time.Time
+	everPublishedBatteryLevel bool
 
 	prefix string
 
@@ -192,7 +205,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 			}
 			// Publish as offline if last connection was >30s ago.
 			if time.Now().Sub(m.lastConnect) > 30*time.Second {
-				m.publish("/available", "offline")
+				m.client.Publish(m.topic("/available"), 0, true, "offline")
 			}
 			// Restart Wifi interface if > wifi_restart_time.
 			if wifiRestartTime > 0 && time.Now().Sub(m.lastConnect) > wifiRestartTime {
@@ -213,7 +226,7 @@ func (m *mqttClient) publish(topic, payload string) {
 	}
 }
 
-func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
+func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Message) {
 	log.Infof("Topic: [%s] Payload: [%s]", msg.Topic(), msg.Payload())
 
 	topicParts := strings.Split(msg.Topic(), "/")
@@ -242,12 +255,12 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 		case "off":
 			m.enabled = false
 			m.phev.Close()
-			m.publish("/available", "offline")
+			m.client.Publish(m.topic("/available"), 0, true, "offline")
 		case "on":
 			m.enabled = true
 		case "restart":
 			m.enabled = true
-			m.publish("/available", "offline")
+			m.client.Publish(m.topic("/available"), 0, true, "offline")
 			m.phev.Close()
 		}
 	} else if msg.Topic() == m.topic("/set/parkinglights") {
@@ -275,14 +288,21 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 			log.Infof("Error setting register 0x17: %v", err)
 			return
 		}
+	} else if strings.HasPrefix(msg.Topic(), m.topic("/set/climate/state")) {
+		payload := strings.ToLower(string(msg.Payload()))
+		if payload == "reset" {
+			if err := m.phev.SetRegister(protocol.SetAckPreACTermRegister, []byte{0x1}); err != nil {
+				log.Infof("Error acknowledging Pre-AC termination: %v", err)
+				return
+			}
+		}
 	} else if strings.HasPrefix(msg.Topic(), m.topic("/set/climate/")) {
 		topic := msg.Topic()
 		payload := strings.ToLower(string(msg.Payload()))
 
 		modeMap := map[string]byte{"off": 0x0, "OFF": 0x0, "cool": 0x1, "heat": 0x2, "windscreen": 0x3, "mode": 0x4}
-		durMap := map[string]byte{"10": 0x0, "20": 0x10, "30": 0x20, "on": 0x0, "off": 0x0}
+		durMap := map[string]byte{"10": 0x0, "20": 0x1, "30": 0x2, "on": 0x0, "off": 0x0}
 		parts := strings.Split(topic, "/")
-		state := byte(0x02) // initial.
 		mode, ok := modeMap[parts[len(parts)-1]]
 		if !ok {
 			log.Errorf("Unknown climate mode: %s", parts[len(parts)-1])
@@ -300,12 +320,36 @@ func (m *mqttClient) handleIncomingMqtt(client mqtt.Client, msg mqtt.Message) {
 			log.Errorf("Unknown climate duration: %s", payload)
 			return
 		}
-		if mode == 0x0 {
-			state = 0x1
-		}
-		if err := m.phev.SetRegister(0x1b, []byte{state, mode, duration, 0x0}); err != nil {
-			log.Infof("Error setting register 0x1b: %v", err)
-			return
+
+		if m.phev.ModelYear == client.ModelYear14 {
+			// Set the AC mode first
+			registerPayload := bytes.Repeat([]byte{0xff}, 15)
+			registerPayload[0] = 0x0
+			registerPayload[1] = 0x0
+			registerPayload[6] = mode | duration
+			if err := m.phev.SetRegister(protocol.SetACModeRegisterMY14, registerPayload); err != nil {
+				log.Infof("Error setting AC mode: %v", err)
+				return
+			}
+
+			// Then, enable/disable the AC
+			acEnabled := byte(0x02)
+			if mode == 0x0 {
+				acEnabled = 0x01
+			}
+			if err := m.phev.SetRegister(protocol.SetACEnabledRegisterMY14, []byte{acEnabled}); err != nil {
+				log.Infof("Error setting AC enabled state: %v", err)
+				return
+			}
+		} else if m.phev.ModelYear == client.ModelYear18 {
+			state := byte(0x02)
+			if mode == 0x0 {
+				state = 0x1
+			}
+			if err := m.phev.SetRegister(protocol.SetACModeRegisterMY18, []byte{state, mode, duration, 0x0}); err != nil {
+				log.Infof("Error setting AC mode: %v", err)
+				return
+			}
 		}
 	} else if msg.Topic() == m.topic("/settings/dump") {
 		log.Infof("CURRENT_SETTINGS:")
@@ -331,7 +375,8 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	if err := m.phev.Start(); err != nil {
 		return err
 	}
-	m.publish("/available", "online")
+	m.client.Publish(m.topic("/available"), 0, true, "online")
+	m.everPublishedBatteryLevel = false
 	defer func() {
 		m.lastConnect = time.Now()
 	}()
@@ -403,8 +448,8 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		for t, p := range m.climate.mqttStates() {
 			m.publish(t, p)
 		}
-	case *protocol.RegisterACOperStatus:
-		m.climate.setState(reg.Operating)
+	case *protocol.RegisterPreACState:
+		m.climate.setState(reg.State)
 		for t, p := range m.climate.mqttStates() {
 			m.publish(t, p)
 		}
@@ -423,8 +468,16 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		m.publish("/door/boot", boolOpen[reg.Boot])
 		m.publish("/lights/head", boolOnOff[reg.Headlights])
 	case *protocol.RegisterBatteryLevel:
-		m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
+		if !m.everPublishedBatteryLevel || reg.Level > 5 {
+			m.everPublishedBatteryLevel = true
+			m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
+		} else {
+			log.Debugf("Ignoring battery level reading: %v", reg.Level)
+		}
 		m.publish("/lights/parking", boolOnOff[reg.ParkingLights])
+	case *protocol.RegisterLightStatus:
+		m.publish("/lights/interior", boolOnOff[reg.Interior])
+		m.publish("/lights/hazard", boolOnOff[reg.Hazard])
 	case *protocol.RegisterChargePlug:
 		if reg.Connected {
 			m.publish("/charge/plug", "connected")

@@ -47,14 +47,14 @@ Contributions and PRs are welcome.
 
 #### Install PCAP dev libraries
 
- * Ensure you have install the libpcap-dev package
+ * Optionally, you may want to have libpcap-dev package installed (if building with `-tags pcap`.)
 
 #### Download, extract, and compile phev2mqtt
 
  * Download the phev2mqtt archive
  * Extract it
- * Go into its the top level directory and run *go build*
- * Verify it runs with *./phev2mqtt -h*
+ * Go into its the top level directory and run `go build`
+ * Verify it runs with `./phev2mqtt -h`
 
 ### Connecting to the vehicle.
 
@@ -120,6 +120,8 @@ The following topics are published:
 | phev/door/boot | State of doors. *closed* or *open* |
 | phev/lights/parking | Parking lights. *on* or *off* |
 | phev/lights/head | Head lights. *on* or *off* |
+| phev/lights/hazard | Hazard lights. *on* or *off* |
+| phev/lights/interior | Interior lights. *on* or *off* |
 | phev/vin | Discovered VIN of the car |
 | phev/registrations | Number of wifi clients registered to the car |
 
@@ -132,6 +134,7 @@ The following topics are subscribed to and can be used to change state on the ca
 | phev/set/headlights | Set head lights *on* or *off* |
 | phev/set/cancelchargetimer | Cancel charge timer (any payload) |
 | phev/set/climate/[mode] | Set ac/climate state (cool/heat/windscreen/off) for [payload] (10[on]/20/30) |
+| phev/set/climate/state | `[payload]=reset` clears "terminated" state |
 | phev/connection | Change car connection state to (on/off/restart) |
 
 #### Home Assistant discovery
@@ -235,10 +238,11 @@ then extract off the phone.
 *PCAP Remote* is a little more involved, but allows for live sniffing of the traffic.
 
 Once you have downloaded the PCAP file(s) from the phone, you can analyse them with
-the command *phev2mqtt decode pcap <filename>*. Adjust the verbosity level (-v)
-between 'info', 'debug' and 'trace' for more details.
+the command *phev2mqtt decode pcap <filename>*. First build a `phev2mqtt` with pcap features:
+`go build -tags pcap`; you will need libpcap for this. Adjust the verbosity level (`-v`) between
+`info`, `debug` and `trace` for more details.
 
-Additionally, the flag '--latency' will use the PCAP packet timestamps to decode
+Additionally, the flag `--latency` will use the PCAP packet timestamps to decode
 the packets with original timings which can help pinpoint app events.
 
 You can also specify *tcp:<host>:<port>* which will connect to that host/port
