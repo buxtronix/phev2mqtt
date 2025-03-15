@@ -701,6 +701,11 @@ type RegisterPreACState struct {
 	raw   []byte
 }
 
+func (r *RegisterPreACState) Encode() *PhevMessage {
+	panic("unimplemented")
+	return nil
+}
+
 func (r *RegisterPreACState) Decode(m *PhevMessage) {
 	// MY'18 data length is 3 bytes, MY'14 uses 1 byte
 	// We only decode the operating state in 0th byte
@@ -927,6 +932,11 @@ type RegisterLightStatus struct {
 	Interior bool
 	Hazard   bool
 	raw      []byte
+}
+
+func (r *RegisterLightStatus) Encode() *PhevMessage {
+	panic("unimplemented")
+	return nil
 }
 
 func (r *RegisterLightStatus) Decode(m *PhevMessage) {
