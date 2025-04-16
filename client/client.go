@@ -303,7 +303,7 @@ func (c *Client) reader() {
 				log.Debug("%%PHEV_TCP_READER_ERROR%%: ", err)
 			}
 			log.Debug("%PHEV_TCP_READER_CLOSE%")
-			c.conn.Close()
+			c.Close()
 			close(c.Recv)
 			c.lMu.Lock()
 			for _, l := range c.listeners {
@@ -333,7 +333,7 @@ func (c *Client) writer() {
 		case msg, ok := <-c.Send:
 			if !ok {
 				log.Debug("%PHEV_TCP_WRITER_CLOSE%")
-				c.conn.Close()
+				c.Close()
 				return
 			}
 			msg.Xor = 0
@@ -346,7 +346,7 @@ func (c *Client) writer() {
 					log.Errorf("%%PHEV_TCP_WRITER_ERROR%%: %v", err)
 				}
 				log.Debug("%PHEV_TCP_WRITER_CLOSE%")
-				c.conn.Close()
+				c.Close()
 				return
 			}
 		}
