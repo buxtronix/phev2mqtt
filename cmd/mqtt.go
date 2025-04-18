@@ -457,7 +457,15 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		}
 	case *protocol.RegisterChargeStatus:
 		m.publish("/charge/charging", boolOnOff[reg.Charging])
-		m.publish("/charge/remaining", fmt.Sprintf("%d", reg.Remaining))
+		if reg.Remaining < 1000 {
+			m.publish("/charge/remaining", fmt.Sprintf("%d", reg.Remaining))
+		} else {
+			log.Debugf("Ignoring charge remanining reading: %v", reg.Remaining)
+			if cache := m.mqttData["/charge/remaining"]; cache != "" {
+				m.publish("/charge/remaining", cache)
+				log.Debugf("Publishing last best known charge remaining reading: %v", cache)
+			}
+		}
 	case *protocol.RegisterDoorStatus:
 		m.publish("/door/locked", boolOpen[!reg.Locked])
 		m.publish("/door/rear_left", boolOpen[reg.RearLeft])
