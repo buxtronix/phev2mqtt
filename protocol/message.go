@@ -236,7 +236,7 @@ func NewFromBytes(data []byte, key *SecurityKey) []*PhevMessage {
 		p.OriginalXored = data[offset : offset+len(dat)]
 		p.Xor = xor
 		if err != nil {
-			log.Errorf("decode error: %v\n", err)
+			fmt.Printf("decode error: %v\n", err)
 			break
 		}
 		msgs = append(msgs, p)

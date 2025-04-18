@@ -136,7 +136,6 @@ type mqttClient struct {
 
 	phev        *client.Client
 	lastConnect time.Time
-	lastError   error
 	everPublishedBatteryLevel bool
 
 	prefix string
@@ -154,7 +153,6 @@ func (m *mqttClient) topic(topic string) string {
 
 func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.enabled = true // Default.
-  m.lastError = nil
 	mqttServer := viper.GetString("mqtt_server")
 	mqttUsername := viper.GetString("mqtt_username")
 	mqttPassword := viper.GetString("mqtt_password")
@@ -195,11 +193,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	for {
 		if m.enabled {
 			if err := m.handlePhev(cmd); err != nil {
-				// Do not flood the log with the same messages every second
-				if m.lastError == nil || m.lastError.Error() != err.Error() {
-					log.Error(err)
-					m.lastError = err
-				}			
+				log.Error(err)
 			}
 			// Publish as offline if last connection was >30s ago.
 			if time.Now().Sub(m.lastConnect) > 30*time.Second {
@@ -375,7 +369,6 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	}
 	m.client.Publish(m.topic("/available"), 0, true, "online")
 	m.everPublishedBatteryLevel = false
-	m.lastError = nil
 	defer func() {
 		m.lastConnect = time.Now()
 	}()
