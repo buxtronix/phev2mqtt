@@ -137,12 +137,12 @@ type mqttClient struct {
 
 	phev        *client.Client
 	lastConnect time.Time
-	everPublishedBatteryLevel bool
 
 	prefix string
 
-	haDiscovery       bool
-	haDiscoveryPrefix string
+	haDiscovery		bool
+	haDiscoveryPrefix	string
+	haPublishedDiscovery	bool
 
 	climate *climate
 	enabled bool
@@ -156,6 +156,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	var err error
 
 	m.enabled = true // Default.
+
 	mqttServer, _ := cmd.Flags().GetString("mqtt_server")
 	mqttUsername, _ := cmd.Flags().GetString("mqtt_username")
 	mqttPassword, _ := cmd.Flags().GetString("mqtt_password")
@@ -171,6 +172,8 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	m.haPublishedDiscovery = false
 
 	m.options = mqtt.NewClientOptions().
 		AddBroker(mqttServer).
@@ -220,10 +223,10 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 }
 
 func (m *mqttClient) publish(topic, payload string) {
-	if cache := m.mqttData[topic]; cache != payload {
+//	if cache := m.mqttData[topic]; cache != payload {
 		m.client.Publish(m.topic(topic), 0, false, payload)
 		m.mqttData[topic] = payload
-	}
+//	}
 }
 
 func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Message) {
@@ -376,7 +379,6 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 		return err
 	}
 	m.client.Publish(m.topic("/available"), 0, true, "online")
-	m.everPublishedBatteryLevel = false
 	defer func() {
 		m.lastConnect = time.Now()
 	}()
@@ -455,7 +457,15 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		}
 	case *protocol.RegisterChargeStatus:
 		m.publish("/charge/charging", boolOnOff[reg.Charging])
-		m.publish("/charge/remaining", fmt.Sprintf("%d", reg.Remaining))
+		if reg.Remaining < 1000 {
+			m.publish("/charge/remaining", fmt.Sprintf("%d", reg.Remaining))
+		} else {
+			log.Debugf("Ignoring charge remanining reading: %v", reg.Remaining)
+			if cache := m.mqttData["/charge/remaining"]; cache != "" {
+				m.publish("/charge/remaining", cache)
+				log.Debugf("Publishing last best known charge remaining reading: %v", cache)
+			}
+		}
 	case *protocol.RegisterDoorStatus:
 		m.publish("/door/locked", boolOpen[!reg.Locked])
 		m.publish("/door/rear_left", boolOpen[reg.RearLeft])
@@ -468,11 +478,13 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 		m.publish("/door/boot", boolOpen[reg.Boot])
 		m.publish("/lights/head", boolOnOff[reg.Headlights])
 	case *protocol.RegisterBatteryLevel:
-		if !m.everPublishedBatteryLevel || reg.Level > 5 {
-			m.everPublishedBatteryLevel = true
+		if (reg.Level > 5) && (reg.Level < 255) {
 			m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
 		} else {
-			log.Debugf("Ignoring battery level reading: %v", reg.Level)
+			if cache := m.mqttData["/battery/level"]; cache != "" {
+				m.publish("/battery/level", cache )
+				log.Debugf("Ignoring battery level reading: %v, publishing last best known: %v", reg.Level, cache)
+			}
 		}
 		m.publish("/lights/parking", boolOnOff[reg.ParkingLights])
 	case *protocol.RegisterLightStatus:
@@ -489,14 +501,12 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 
 // Publish home assistant discovery message.
 // Uses the vehicle VIN, so sent after VIN discovery.
-var publishedDiscovery = false
-
 func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 
-	if publishedDiscovery || !m.haDiscovery {
+	if m.haPublishedDiscovery || !m.haDiscovery {
 		return
 	}
-	publishedDiscovery = true
+	m.haPublishedDiscovery = true
 	discoveryData := map[string]string{
 		// Doors.
 		"%s/binary_sensor/%s_door_locked/config": `{
@@ -799,7 +809,9 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		for in, out := range mappings {
 			d = strings.Replace(d, in, out, -1)
 		}
-		m.client.Publish(topic, 0, false, d)
+		if token := m.client.Publish(topic, 0, true, d); token.Wait() && token.Error() != nil {
+			log.Error( token.Error() )
+		}
 		//m.client.Publish(topic, 0, false, "{}")
 	}
 }
