@@ -153,16 +153,15 @@ func (m *mqttClient) topic(topic string) string {
 
 func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.enabled = true // Default.
-	mqttServer := viper.GetString("mqtt_server")
-	mqttUsername := viper.GetString("mqtt_username")
-	mqttPassword := viper.GetString("mqtt_password")
-	m.prefix = viper.GetString("mqtt_topic_prefix")
-	m.haDiscovery = viper.GetBool("ha_discovery")
-	m.haDiscoveryPrefix = viper.GetString("ha_discovery_prefix")
 
-	m.updateInterval = viper.GetDuration("update_interval")
-
-	wifiRestartTime := viper.GetDuration("wifi_restart_time")
+	mqttServer		:= viper.GetString("mqtt_server")
+	mqttUsername		:= viper.GetString("mqtt_username")
+	mqttPassword		:= viper.GetString("mqtt_password")
+	m.prefix		 = viper.GetString("mqtt_topic_prefix")
+	m.haDiscovery		 = viper.GetBool("ha_discovery")
+	m.haDiscoveryPrefix	 = viper.GetString("ha_discovery_prefix")
+	m.updateInterval	 = viper.GetDuration("update_interval")
+	wifiRestartTime		:= viper.GetDuration("wifi_restart_time")
 
 	m.options = mqtt.NewClientOptions().
 		AddBroker(mqttServer).
