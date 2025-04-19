@@ -44,7 +44,7 @@ func init() {
 	// clientCmd.PersistentFlags().String("foo", "", "A help for foo")
 	clientCmd.PersistentFlags().String("address", "192.168.8.46:8080", "Address to connect to")
 
-	viper.BindPFlag("address", clientCmd.Flags().Lookup("address"))
+	viper.BindPFlag("address", clientCmd.PersistentFlags().Lookup("address"))
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// clientCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
