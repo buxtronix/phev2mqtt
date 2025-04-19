@@ -137,6 +137,7 @@ type mqttClient struct {
 
 	phev        *client.Client
 	lastConnect time.Time
+	lastError   error
 	everPublishedBatteryLevel bool
 
 	prefix string
@@ -156,6 +157,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	var err error
 
 	m.enabled = true // Default.
+	m.lastError = nil
 	mqttServer, _ := cmd.Flags().GetString("mqtt_server")
 	mqttUsername, _ := cmd.Flags().GetString("mqtt_username")
 	mqttPassword, _ := cmd.Flags().GetString("mqtt_password")
@@ -201,7 +203,11 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	for {
 		if m.enabled {
 			if err := m.handlePhev(cmd); err != nil {
-				log.Error(err)
+				// Do not flood the log with the same messages every second
+				if m.lastError == nil || m.lastError.Error() != err.Error() {
+					log.Error(err)
+					m.lastError = err
+				}			
 			}
 			// Publish as offline if last connection was >30s ago.
 			if time.Now().Sub(m.lastConnect) > 30*time.Second {
@@ -377,6 +383,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	}
 	m.client.Publish(m.topic("/available"), 0, true, "online")
 	m.everPublishedBatteryLevel = false
+	m.lastError = nil
 	defer func() {
 		m.lastConnect = time.Now()
 	}()

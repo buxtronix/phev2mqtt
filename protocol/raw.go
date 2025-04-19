@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"encoding/hex"
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"math/rand"
 )
@@ -158,7 +157,7 @@ func ValidateChecksum(message []byte) bool {
 // plus any trailing data.
 func ValidateAndDecodeMessage(message []byte) ([]byte, byte, []byte) {
 	if len(message) < 4 {
-		fmt.Printf("Short msg\n")
+		log.Debugf("Short msg\n")
 		return nil, 0, nil
 	}
 	xor := message[2]
@@ -167,7 +166,7 @@ func ValidateAndDecodeMessage(message []byte) ([]byte, byte, []byte) {
 		xor ^= 1
 		msg = XorMessageWith(message, xor)
 		if !ValidateChecksum(msg) {
-			fmt.Printf("Bad sum for (%s)\n", hex.EncodeToString(message))
+			log.Debugf("Bad sum for (%s)\n", hex.EncodeToString(message))
 			return nil, 0, nil
 		}
 	}
