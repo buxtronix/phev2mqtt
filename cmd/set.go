@@ -18,11 +18,12 @@ package cmd
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/buxtronix/phev2mqtt/client"
-	log "github.com/sirupsen/logrus"
+	//	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -93,13 +94,12 @@ func runSet(cmd *cobra.Command, args []string) {
 	if err := cl.Start(); err != nil {
 		panic(err)
 	}
-	log.Infof("Client connected and started!")
-	log.Infof("Waiting %d", waitTime.String())
+	fmt.Printf("Client connected and started!\nWaiting %d\n", waitTime.String())
 
 	time.Sleep(waitTime)
 
 	for _, reg := range setRegisters {
-		log.Infof("Setting register 0x%x to 0x%s", reg.register, hex.EncodeToString(reg.value))
+		fmt.Printf("Setting register 0x%x to 0x%s\n", reg.register, hex.EncodeToString(reg.value))
 		if err := cl.SetRegister(reg.register, reg.value); err != nil {
 			panic(err)
 		}
