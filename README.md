@@ -161,7 +161,7 @@ MACAddress=b8:27:eb:50:c0:52
 
 [Link]
 # This should be the MAC address to use to connect to the car, per above.
-# Note that this is optional if NetworkManager is used, see below
+# Note that the MACAddress setting is optional if NetworkManager is used, see below
 MACAddress=ee:4d:ec:de:7a:91
 NamePolicy=kernel database onboard slot path
 # Optionally force the human-readable name of the WiFi network interface
@@ -183,8 +183,7 @@ network={
 
 ```
 
-- Alternatively in case NetworkManager infrastructure is used:
-  Edit or add file `/etc/NetworkManager/system-connections/WiFi-PHEV.nmconnection` with the following content:
+- Alternatively in case NetworkManager infrastructure is used. Edit or add file `/etc/NetworkManager/system-connections/WiFi-PHEV.nmconnection` with the following content:
 
 ```
 [connection]
@@ -206,9 +205,9 @@ wait-device-timeout=30000
 [wifi]
 band=bg
 mode=infrastructure
-ssid=<REMOTExxxxxx SSID of your PHEV remote control network>
+ssid=<REMOTExxxxxx SSID of your vechicle WiFi network>
 # Optional for faster connection
-bssid=<SSID of your PHEV remote control network>
+bssid=<BSSID/MAC of your vechicle WiFi network>
 channel=<3 (default) of 8>
 # Optional to emulate connection from your phone
 cloned-mac-address=<Your phone MAC address>
@@ -238,9 +237,9 @@ method=disabled
 [proxy]
 ```
 
-Reload the list of network connections `nmcli connection reload`
-Raise the nework connection `nmcli connection up WiFi-PHEV`
-Check if the connection is up `nmcli connection`
+- Reload the list of network connections `nmcli connection reload`.
+- Raise the nework connection `nmcli connection up WiFi-PHEV`.
+- Check the connection status `nmcli connection`.
 
 After that the connection and WiFi network interface are managed by NetworkManager. It will reconnect automatically when the connection is lost,
 even for a long period of time.
