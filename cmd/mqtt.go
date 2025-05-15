@@ -44,6 +44,7 @@ Status data from the car is passed to the MQTT topics, and also some commands fr
 are sent to control certain aspects of the car. See the phev2mqtt Github page for
 more details on the topics.
 `,
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		mc := &mqttClient{climate: new(climate)}
 		return mc.Run(cmd, args)
