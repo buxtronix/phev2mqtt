@@ -161,9 +161,11 @@ MACAddress=b8:27:eb:50:c0:52
 
 [Link]
 # This should be the MAC address to use to connect to the car, per above.
+# Note that this is optional if NetworkManager is used, see below
 MACAddress=ee:4d:ec:de:7a:91
 NamePolicy=kernel database onboard slot path
-
+# Optionally force the human-readable name of the WiFi network interface
+Name=wlan0
 ```
 
 - Add the car's Wifi info to `/etc/wpa_supplicant/wpa_supplicant.conf`:
@@ -181,6 +183,72 @@ network={
 
 ```
 
+- Alternatively in case NetworkManager infrastructure is used:
+  Edit or add file `/etc/NetworkManager/system-connections/WiFi-PHEV.nmconnection` with the following content:
+
+```
+[connection]
+id=WiFi-PHEV
+uuid=54031489-4343-4db2-a70c-cff5ed4013b2
+type=wifi
+auth-retries=10
+autoconnect-priority=10
+autoconnect-retries=0
+# Replace with your wlan interface name
+interface-name=wlan0
+# Disable unnecessary protocols
+lldp=0
+llmnr=0
+mdns=0
+timestamp=1743267699
+wait-device-timeout=30000
+
+[wifi]
+band=bg
+mode=infrastructure
+ssid=<REMOTExxxxxx SSID of your PHEV remote control network>
+# Optional for faster connection
+bssid=<SSID of your PHEV remote control network>
+channel=<3 (default) of 8>
+# Optional to emulate connection from your phone
+cloned-mac-address=<Your phone MAC address>
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=<Password>
+
+[ipv4]
+# This is optional to ignore vechicle DCHP server, and force static IP address and routing table setup
+method=manual
+address1=192.168.8.47/24
+dns=8.8.8.8;8.8.4.4;
+ignore-auto-dns=true
+# Prevent NetworkManager to add new connection to the default routing table
+never-default=true
+# Lower the traffic priority to force only packets dedicated to 192.168.8.255 subnet to be routed via WiFi to the vechicle
+route-metric=40
+# Force routing table setup
+route1=192.168.8.0/24,192.168.8.46
+
+[ipv6]
+# Disable IPv6
+addr-gen-mode=default
+method=disabled
+
+[proxy]
+```
+
+Reload the list of network connections `nmcli connection reload`
+Raise the nework connection `nmcli connection up WiFi-PHEV`
+Check if the connection is up `nmcli connection`
+
+After that the connection and WiFi network interface are managed by NetworkManager. It will reconnect automatically when the connection is lost,
+even for a long period of time.
+
+Note that the connection quality heavily depends on the distance between the vechicle and your RPi, type of walls in between, etc.
+In case the distance is short, the NetworkManager setup is stable, and the restart WiFi functionality is not needed.
+
+
 - Add the following to `/etc/systemd/system/phev2mqtt.service`, updating the MQTT address to
 suit your setup:
 
@@ -189,6 +257,9 @@ suit your setup:
 Description=phev2mqtt service script
 StartLimitIntervalSec=5
 After=syslog.target network.target
+# Alternatively if MQTT is used
+After=syslog.target network-online.target
+Requires=mosquitto.service
 
 [Service]
 Type=exec
