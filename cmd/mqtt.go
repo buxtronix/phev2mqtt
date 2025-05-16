@@ -44,6 +44,7 @@ Status data from the car is passed to the MQTT topics, and also some commands fr
 are sent to control certain aspects of the car. See the phev2mqtt Github page for
 more details on the topics.
 `,
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		mc := &mqttClient{climate: new(climate)}
 		return mc.Run(cmd, args)
@@ -160,6 +161,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	mqttServer		:= viper.GetString("mqtt_server")
 	mqttUsername		:= viper.GetString("mqtt_username")
 	mqttPassword		:= viper.GetString("mqtt_password")
+	mqttDisableSet		:= viper.GetBool("mqtt_disable_register_set_command")
 	m.prefix		 = viper.GetString("mqtt_topic_prefix")
 	m.haDiscovery		 = viper.GetBool("ha_discovery")
 	m.haDiscoveryPrefix	 = viper.GetString("ha_discovery_prefix")
@@ -188,8 +190,12 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		return token.Error()
 	}
 
-	if token := m.client.Subscribe(m.topic("/set/#"), 0, nil); token.Wait() && token.Error() != nil {
-		return token.Error()
+	if !mqttDisableSet {
+		if token := m.client.Subscribe(m.topic("/set/#"), 0, nil); token.Wait() && token.Error() != nil {
+			return token.Error()
+		}
+	} else {
+		log.Info("Setting vechicle registers via MQTT is disabled")
 	}
 	if token := m.client.Subscribe(m.topic("/connection"), 0, nil); token.Wait() && token.Error() != nil {
 		return token.Error()
@@ -838,6 +844,7 @@ func init() {
 	mqttCmd.Flags().String("mqtt_username", "", "Username to login to MQTT server")
 	mqttCmd.Flags().String("mqtt_password", "", "Password to login to MQTT server")
 	mqttCmd.Flags().String("mqtt_topic_prefix", "phev", "Prefix for MQTT topics")
+	mqttCmd.Flags().Bool("mqtt_disable_register_set_command", false, "Disable vechicle register setting via MQTT")
 	mqttCmd.Flags().Bool("ha_discovery", true, "Enable Home Assistant MQTT discovery")
 	mqttCmd.Flags().String("ha_discovery_prefix", "homeassistant", "Prefix for Home Assistant MQTT discovery")
 	mqttCmd.Flags().Duration("update_interval", 5*time.Minute, "How often to request force updates")
@@ -849,6 +856,7 @@ func init() {
 	viper.BindPFlag("mqtt_username", mqttCmd.Flags().Lookup("mqtt_username"))
 	viper.BindPFlag("mqtt_password", mqttCmd.Flags().Lookup("mqtt_password"))
 	viper.BindPFlag("mqtt_topic_prefix", mqttCmd.Flags().Lookup("mqtt_topic_prefix"))
+	viper.BindPFlag("mqtt_disable_register_set_command", mqttCmd.Flags().Lookup("mqtt_disable_register_set_command"))
 	viper.BindPFlag("ha_discovery", mqttCmd.Flags().Lookup("ha_discovery"))
 	viper.BindPFlag("ha_discovery_prefix", mqttCmd.Flags().Lookup("ha_discovery_prefix"))
 	viper.BindPFlag("update_interval", mqttCmd.Flags().Lookup("update_interval"))
