@@ -55,6 +55,7 @@ const (
 	ModelYearUnknown ModelYear = iota
 	ModelYear14
 	ModelYear18
+	ModelYear24
 )
 
 // A Client is a TCP client to a Phev.
@@ -265,6 +266,17 @@ func (c *Client) manage() {
 			}
 		case protocol.CmdInStartResp:
 			c.Send <- protocol.NewPingRequestMessage(0xa)
+		case protocol.CmdInMy24StartReq:
+			c.ModelYear = ModelYear24
+			c.Send <- &protocol.PhevMessage{
+				Type:     protocol.CmdOutMy24StartResp,
+				Register: 0x1,
+				Ack:      protocol.Ack,
+				Xor:      m.Xor,
+				Data:     []byte{0x0},
+			}
+			log.Debug("%%PHEV_START24_RECV%%")
+			c.started <- struct{}{}
 		case protocol.CmdInMy18StartReq:
 			c.ModelYear = ModelYear18
 			c.Send <- &protocol.PhevMessage{
