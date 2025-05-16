@@ -115,16 +115,18 @@ func restartWifi(cmd *cobra.Command) error {
 
 	restartCommand := viper.GetString("wifi_restart_command")
 	if restartCommand == "" {
-		log.Infof("wifi restart disabled")
+		log.Debugf("wifi restart disabled")
 		return nil
 	}
 
-	log.Infof("Attempting to restart wifi")
+	log.Debugf("Attempting to restart wifi")
 
-	restartCmd := exec.Command("sh", "-c", restartCommand)
+	restartCmd := exec.Command("/bin/sh", "-c", restartCommand)
 
 	stdoutStderr, err := restartCmd.CombinedOutput()
-	log.Infof("Output from wifi restart: %s", stdoutStderr)
+	if len( stdoutStderr ) > 0 {
+		log.Infof("Output from wifi restart: %s", stdoutStderr)
+	}
 	return err
 }
 
@@ -136,6 +138,7 @@ type mqttClient struct {
 
 	phev        *client.Client
 	lastConnect time.Time
+	lastError   error
 
 	prefix string
 
@@ -162,8 +165,14 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.haDiscoveryPrefix	 = viper.GetString("ha_discovery_prefix")
 	m.updateInterval	 = viper.GetDuration("update_interval")
 	wifiRestartTime		:= viper.GetDuration("wifi_restart_time")
+	restartCommand		:= viper.GetString("wifi_restart_command")
 
-	m.haPublishedDiscovery = false
+	if restartCommand == "" {
+		log.Infof("WiFi restart disabled")
+	}
+
+	m.haPublishedDiscovery	= false
+	m.lastError		= nil
 
 	m.options = mqtt.NewClientOptions().
 		AddBroker(mqttServer).
@@ -194,7 +203,11 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	for {
 		if m.enabled {
 			if err := m.handlePhev(cmd); err != nil {
-				log.Error(err)
+				// Do not flood the log with the same messages every second
+				if m.lastError == nil || m.lastError.Error() != err.Error() {
+					log.Error(err)
+					m.lastError = err
+				}
 			}
 			// Publish as offline if last connection was >30s ago.
 			if time.Now().Sub(m.lastConnect) > 30*time.Second {
@@ -369,6 +382,9 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 		return err
 	}
 	m.client.Publish(m.topic("/available"), 0, true, "online")
+
+	m.lastError = nil
+
 	defer func() {
 		m.lastConnect = time.Now()
 	}()

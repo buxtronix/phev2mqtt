@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/buxtronix/phev2mqtt/client"
@@ -73,7 +72,7 @@ func runRegister(cmd *cobra.Command, args []string) {
 	if err := cl.Start(); err != nil {
 		panic(err)
 	}
-	fmt.Printf("Client connected and started!\n")
+	log.Infof("Client connected and started!")
 
 	vinCh := make(chan string)
 
@@ -114,10 +113,10 @@ func runRegister(cmd *cobra.Command, args []string) {
 
 	reg := byte(0x10)
 	if cmd.Use == "unregister" {
-		fmt.Printf("Attempting to unregister from car (VIN: %s)...\n", vin)
+		log.Infof("Attempting to unregister from car (VIN: %s)...", vin)
 		reg = 0x15
 	} else {
-		fmt.Printf("Attempting to register to car (VIN: %s)...\n", vin)
+		log.Infof("Attempting to register to car (VIN: %s)...", vin)
 	}
 	if err := cl.SetRegister(reg, []byte{0x1}); err != nil {
 		log.Errorf("Failed to (un)register: %v", err)
@@ -125,7 +124,7 @@ func runRegister(cmd *cobra.Command, args []string) {
 	}
 	cl.Close()
 	time.Sleep(time.Second)
-	fmt.Printf("Success!\n")
+	log.Infof("Success!")
 }
 
 func init() {
