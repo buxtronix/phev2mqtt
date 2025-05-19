@@ -149,16 +149,18 @@ You can disable this with `--ha_discovery=false` or change the discovery prefix,
 
 #### Configuration file format
 
-Configuration file has the single level structure where the parameters are the same as program command line options.
+Configuration file has a single level structure where the parameters are the same as program command line options.
 
-YAML file example:
+YAML configuration file example:
 
+```
 mqtt_server: "tcp://localhost:1883"
 mqtt_username: "XXXXX"
 mqtt_password: "XXXXX"
 update_interval: 10m
 wifi_restart_time: 30s
 wifi_restart_retry_time: 2m
+```
 
 #### Raspbian setup with auto-start
 
