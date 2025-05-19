@@ -147,6 +147,19 @@ in the Devices tab.
 
 You can disable this with `--ha_discovery=false` or change the discovery prefix, the default is `--ha_discovery_prefix=homeassistant`.
 
+#### Configuration file format
+
+Configuration file has the single level structure where the parameters are the same as program command line options.
+
+YAML file example:
+
+mqtt_server: "tcp://localhost:1883"
+mqtt_username: "XXXXX"
+mqtt_password: "XXXXX"
+update_interval: 10m
+wifi_restart_time: 30s
+wifi_restart_retry_time: 2m
+
 #### Raspbian setup with auto-start
 
 It's useful to have the tool auto-start when running on e.g a Raspberry Pi. The following
@@ -205,9 +218,9 @@ wait-device-timeout=30000
 [wifi]
 band=bg
 mode=infrastructure
-ssid=<REMOTExxxxxx SSID of your vechicle WiFi network>
+ssid=<REMOTExxxxxx SSID of your vehicle WiFi network>
 # Optional for faster connection
-bssid=<BSSID/MAC of your vechicle WiFi network>
+bssid=<BSSID/MAC of your vehicle WiFi network>
 channel=<3 (default) of 8>
 # Optional to emulate connection from your phone
 cloned-mac-address=<Your phone MAC address>
@@ -217,14 +230,14 @@ key-mgmt=wpa-psk
 psk=<Password>
 
 [ipv4]
-# This is optional to ignore vechicle DCHP server, and force static IP address and routing table setup
+# This is optional to ignore vehicle DCHP server, and force static IP address and routing table setup
 method=manual
 address1=192.168.8.47/24
 dns=8.8.8.8;8.8.4.4;
 ignore-auto-dns=true
 # Prevent NetworkManager to add new connection to the default routing table
 never-default=true
-# Lower the traffic priority to force only packets dedicated to 192.168.8.255 subnet to be routed via WiFi to the vechicle
+# Lower the traffic priority to force only packets dedicated to 192.168.8.255 subnet to be routed via WiFi to the vehicle
 route-metric=40
 # Force routing table setup
 route1=192.168.8.0/24,192.168.8.46
@@ -244,7 +257,7 @@ method=disabled
 After that the connection and WiFi network interface are managed by NetworkManager. It will reconnect automatically when the connection is lost,
 even for a long period of time.
 
-Note that the connection quality heavily depends on the distance between the vechicle and your RPi, type of walls in between, etc.
+Note that the connection quality heavily depends on the distance between the vehicle and your RPi, type of walls in between, etc.
 In case the distance is short, the NetworkManager setup is stable, and the restart WiFi functionality is not needed.
 
 
