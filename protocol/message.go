@@ -15,6 +15,9 @@ const (
 	CmdOutSend = 0xf6
 	CmdInResp  = 0x6f
 
+	CmdInMy24StartReq   = 0x6e
+	CmdOutMy24StartResp = 0xe6
+
 	CmdInMy18StartReq   = 0x5e
 	CmdOutMy18StartResp = 0xe5
 
@@ -51,6 +54,8 @@ var messageStr = map[byte]string{
 	0x2f: "StartResp",
 	0xe4: "StartResp14",
 	0x4e: "StartReq14",
+	0xe6: "StartResp24",
+	0x6e: "StartReq24",
 }
 
 type PhevMessage struct {
@@ -96,6 +101,12 @@ func (p *PhevMessage) ShortForm() string {
 		}
 		return fmt.Sprintf("REGISTER SETACK (reg 0x%02x data %s)", p.Register, hex.EncodeToString(p.Data))
 
+	case CmdInMy24StartReq:
+		return fmt.Sprintf("START RECV24  (orig %s)", hex.EncodeToString(p.Original))
+
+	case CmdOutMy24StartResp:
+		return fmt.Sprintf("START SEND24  (orig %s)", hex.EncodeToString(p.Original))
+
 	case CmdInMy18StartReq:
 		return fmt.Sprintf("START RECV18  (orig %s)", hex.EncodeToString(p.Original))
 
@@ -132,7 +143,7 @@ func (p *PhevMessage) EncodeToBytes(key *SecurityKey) []byte {
 	data = append(data, Checksum(data))
 	var xor byte
 	switch p.Type {
-	case CmdInMy18StartReq, CmdOutMy18StartResp, CmdInMy14StartReq, CmdOutMy14StartResp:
+	case CmdInMy24StartReq, CmdOutMy24StartResp, CmdInMy18StartReq, CmdOutMy18StartResp, CmdInMy14StartReq, CmdOutMy14StartResp:
 		// No xor/key for these messages.
 	case CmdOutSend:
 		// Use then increment send key.
@@ -163,7 +174,7 @@ func (p *PhevMessage) DecodeFromBytes(data []byte, key *SecurityKey) error {
 	p.Xor = xor
 	p.Original = data
 	switch p.Type {
-	case CmdInMy18StartReq, CmdInMy14StartReq:
+	case CmdInMy24StartReq, CmdInMy18StartReq, CmdInMy14StartReq:
 		key.Update(p.OriginalXored)
 	case CmdInResp:
 		key.RKey(true)
