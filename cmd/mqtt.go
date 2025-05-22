@@ -353,7 +353,7 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 				log.Infof("Error setting AC enabled state: %v", err)
 				return
 			}
-		} else if m.phev.ModelYear == client.ModelYear18 {
+		} else if m.phev.ModelYear == client.ModelYear18 || m.phev.ModelYear == client.ModelYear24 {
 			state := byte(0x02)
 			if mode == 0x0 {
 				state = 0x1
