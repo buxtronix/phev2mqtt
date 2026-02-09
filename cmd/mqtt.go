@@ -853,7 +853,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		for in, out := range mappings {
 			d = strings.Replace(d, in, out, -1)
 		}
-		if token := m.client.Publish(topic, 0, true, d); token.Wait() && token.Error() != nil {
+		if token := m.client.Publish(topic, 1, true, d); token.Wait() && token.Error() != nil {
 			log.Error( token.Error() )
 		}
 		//m.client.Publish(topic, 0, false, "{}")
