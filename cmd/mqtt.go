@@ -338,7 +338,7 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 			registerPayload := bytes.Repeat([]byte{0xff}, 15)
 			registerPayload[0] = 0x0
 			registerPayload[1] = 0x0
-			registerPayload[6] = mode | duration
+			registerPayload[6] = mode | (duration << 4)
 			if err := m.phev.SetRegister(protocol.SetACModeRegisterMY14, registerPayload); err != nil {
 				log.Infof("Error setting AC mode: %v", err)
 				return
