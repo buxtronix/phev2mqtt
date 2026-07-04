@@ -133,7 +133,7 @@ The following topics are subscribed to and can be used to change state on the ca
 | phev/set/parkinglights | Set parking lights *on* or *off* |
 | phev/set/headlights | Set head lights *on* or *off* |
 | phev/set/cancelchargetimer | Cancel charge timer (any payload) |
-| phev/set/climate/[mode] | Set ac/climate state (cool/heat/windscreen/off) for [payload] (10[on]/20/30) |
+| phev/set/climate/[mode] | Set ac/climate state (cool/heat/windscreen/off) for [payload] minutes (10/20/30[on]) |
 | phev/set/climate/state | `[payload]=reset` clears "terminated" state |
 | phev/connection | Change car connection state to (on/off/restart) |
 
