@@ -94,7 +94,7 @@ func runSet(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 	log.Infof("Client connected and started!")
-	log.Infof("Waiting %d", waitTime.String())
+	log.Infof("Waiting %s", waitTime.String())
 
 	time.Sleep(waitTime)
 

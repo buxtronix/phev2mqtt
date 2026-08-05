@@ -36,7 +36,7 @@ func (c *Car) Begin() error {
 		for {
 			conn, err := l.Accept()
 			if err != nil {
-				log.Errorf("Accept() error: %v")
+				log.Errorf("Accept() error: %v", err)
 				return
 			}
 			svc := NewConnection(conn, c)
