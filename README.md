@@ -7,7 +7,7 @@ Inspired by https://github.com/phev-remote/ but written entirely in Go.
 
 For further hacking, read the [protocol documentation](protocol/README.md).
 
-Tested against a MY18 vehicle.
+Tested against a MY18 vehicle and Eclypse Cross 2022.
 
 ![Home Assistant Screenshot](phev-ha.png)
 
@@ -19,7 +19,7 @@ Tested against a MY18 vehicle.
  * Fetch battery, charge, door, light status
  * Set lights and charge enable
  * Near-instant response to commands
- * *Only tested on a MY18 Phev*
+ * *Only tested on a MY18 Phev* *Tested on Eclypse Cross 2022*
 
 Also includes some debugging utilities, and a vehicle emulator.
 
