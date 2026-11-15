@@ -265,7 +265,7 @@ func (ws *webServer) command(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, fmt.Errorf("%s: value must be one of %s", req.Command, strings.Join(c.payloads, ", ")))
 			return
 		}
-		log.Infof("Web interface: %s %s", req.Command, req.Value)
+		log.Infof("Web interface: %q %q", req.Command, req.Value)
 		// SetRegister waits up to 10s for the car; the result shows in the log.
 		go ws.m.safeHandleIncomingMqtt(nil, fakeMessage{topic: ws.m.topic(c.topic), payload: req.Value})
 	}
@@ -358,7 +358,7 @@ func (ws *webServer) setMQTT(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	log.Infof("Web interface: MQTT settings changed, reconnecting to %s", req.Server)
+	log.Infof("Web interface: MQTT settings changed, reconnecting to %q", req.Server)
 	go ws.m.connectMQTT()
 	ws.getMQTT(w, r)
 }
@@ -424,7 +424,7 @@ func (ws *webServer) setWifi(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Infof("Web interface: connecting %s to %q", ws.wifi.iface, req.SSID)
 	if err := ws.wifi.connectCar(req.SSID, req.Password, strings.TrimSpace(req.ClonedMAC)); err != nil {
-		log.Errorf("WiFi: %v", err)
+		log.Errorf("WiFi: %q", err.Error())
 		writeError(w, http.StatusBadGateway, err)
 		return
 	}
