@@ -47,6 +47,9 @@ func TestRestartTopic(t *testing.T) {
 	if got := b.published["phev/available"]; got != "offline" {
 		t.Errorf("phev/available = %q before restarting, want offline", got)
 	}
+	if got := b.published["phev/gateway/available"]; got != "offline" {
+		t.Errorf("phev/gateway/available = %q before restarting, want offline", got)
+	}
 	// The stub failed, so the gateway must carry on.
 	waitEnabled(t, m)
 }

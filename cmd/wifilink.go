@@ -60,6 +60,7 @@ func (m *mqttClient) watchWifi(iface string) {
 			}
 			m.state.setWifiUp(up)
 			m.publishWifi(iface)
+			m.wifiChanged(up)
 		})
 		log.Warnf("Not watching WiFi %s: %v", iface, err)
 		if errors.Is(err, errNoNetlink) {

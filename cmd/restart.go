@@ -27,7 +27,9 @@ func (m *mqttClient) restart() {
 		phev.Close()
 	}
 	// QoS 1 waits (up to 5s) until the broker has it.
-	m.mqttPublish(m.topic("/available"), 1, true, "offline")
+	m.setAvailable(false, "restarting")
+	m.mqttPublish(m.topic(availableTopic), 1, true, "offline")
+	m.mqttPublish(m.topic(gatewayAvailableTopic), 1, true, "offline")
 	if c := m.mqtt(); c != nil {
 		c.Disconnect(250)
 	}

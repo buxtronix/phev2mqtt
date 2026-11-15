@@ -79,6 +79,11 @@ All settings, with comments, are in `/etc/phev2mqtt/config.yaml`; the log is in
 The car shows up as a device by itself, through MQTT discovery, once phev2mqtt has
 connected to it: search for "phev" in your entities.
 
+The car's entities turn *unavailable* when the car is away (phev/available) or
+phev2mqtt is down (phev/gateway/available), instead of keeping old values. The
+*Connection*, *WiFi* and *Gateway* entities stay available while phev2mqtt runs,
+so they show which of the two it is.
+
 ![Home Assistant screenshot](phev-ha.png)
 
 <details>
@@ -88,7 +93,8 @@ Published, under the prefix `phev` (`mqtt_topic_prefix`):
 
 | Topic | Value |
 |---|---|
-| phev/available | Connected to the car: *online* or *offline* |
+| phev/available | The car: *online* once connected and sending data; *offline* when its WiFi drops, 30 s after the connection is lost, or when it sent nothing for a whole `update_interval` |
+| phev/gateway/available | phev2mqtt itself: *online*, or *offline* through the MQTT last will when it or its host goes down |
 | phev/connection/last_connected, last_disconnected | When the car last connected and disconnected |
 | phev/wifi/state, phev/wifi/signal | The car's WiFi: *connected* or *disconnected*, and the signal in dBm |
 | phev/battery/level | Battery level, in percent |

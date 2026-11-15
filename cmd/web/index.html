@@ -247,8 +247,10 @@ function render(st) {
   $("version").textContent = st.version;
   $("version").title = st.build !== st.version ? "Build " + st.build : "";
   const car = $("pill-car");
-  car.textContent = "Car: " + (!st.enabled ? "disabled" : st.car_connected ? "connected" : "not connected");
-  car.className = "pill " + (st.car_connected ? "ok" : st.enabled ? "bad" : "warn");
+  // available: what phev/available says, i.e. connected with data.
+  car.textContent = "Car: " + (!st.enabled ? "disabled" : st.available ? "connected" :
+    st.car_connected ? "connected, no data" : "not connected");
+  car.className = "pill " + (st.available ? "ok" : st.enabled && !st.car_connected ? "bad" : "warn");
   const mq = $("pill-mqtt");
   mq.textContent = "MQTT: " + (!st.mqtt_server ? "not set up" : st.mqtt_connected ? "connected" : "not connected");
   mq.className = "pill " + (st.mqtt_connected ? "ok" : st.mqtt_server ? "bad" : "warn");
