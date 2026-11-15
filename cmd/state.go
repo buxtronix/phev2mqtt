@@ -25,6 +25,12 @@ type gatewayState struct {
 	lastConnect  time.Time
 	vin          string
 	modelYear    client.ModelYear
+
+	// carData: the car sent register data on the current connection, last
+	// at lastData. available is what phev/available last said.
+	carData   bool
+	lastData  time.Time
+	available bool
 	// The car's WiFi interface; wifiKnown is false until watchWifi reports.
 	wifi      bool
 	wifiKnown bool
@@ -105,6 +111,7 @@ func (s *gatewayState) setConnected(connected bool, my client.ModelYear) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.carConnected = connected
+	s.carData = false
 	if connected {
 		s.modelYear = my
 	} else {
@@ -133,6 +140,48 @@ func (s *gatewayState) isConnected() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.carConnected
+}
+
+// gotCarData records register data arriving from the car.
+func (s *gatewayState) gotCarData() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.carData = true
+	s.lastData = time.Now()
+}
+
+// sinceCarData is how long ago the car last sent register data.
+func (s *gatewayState) sinceCarData() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return time.Since(s.lastData)
+}
+
+// carAvailable reports whether the car counts as available: connected,
+// with data on this connection, over WiFi that is up (when watched).
+func (s *gatewayState) carAvailable() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.enabled && s.carConnected && s.carData && (s.wifi || !s.wifiKnown)
+}
+
+// setAvailable records what phev/available says and reports whether that
+// changed.
+func (s *gatewayState) setAvailable(available bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.available == available {
+		return false
+	}
+	s.available = available
+	s.notifyLocked()
+	return true
+}
+
+func (s *gatewayState) isAvailable() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.available
 }
 
 func (s *gatewayState) sinceLastConnect() time.Duration {
@@ -165,6 +214,7 @@ func (s *gatewayState) getVIN() string {
 type stateSnapshot struct {
 	Enabled      bool              `json:"enabled"`
 	CarConnected bool              `json:"car_connected"`
+	Available    bool              `json:"available"`
 	LastConnect  *time.Time        `json:"last_connect,omitempty"`
 	Updated      *time.Time        `json:"updated,omitempty"`
 	VIN          string            `json:"vin,omitempty"`
@@ -184,6 +234,7 @@ func (s *gatewayState) snapshot() stateSnapshot {
 	snap := stateSnapshot{
 		Enabled:      s.enabled,
 		CarConnected: s.carConnected,
+		Available:    s.available,
 		VIN:          s.vin,
 		ModelYear:    modelYearNames[s.modelYear],
 		Values:       make(map[string]string, len(s.values)),

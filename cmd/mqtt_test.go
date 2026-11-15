@@ -155,7 +155,7 @@ func TestDiscoveryStateTopicsArePublished(t *testing.T) {
 		"/door/driver", "/door/rear_left", "/door/rear_right",
 		"/battery/level", "/charge/remaining", "/charge/plug", "/charge/charging",
 		"/lights/parking", "/lights/head", "/lights/interior", "/lights/hazard",
-		"/available", "/connection/last_connected", "/connection/last_disconnected",
+		"/available", "/gateway/available", "/connection/last_connected", "/connection/last_disconnected",
 		"/wifi/state", "/wifi/signal",
 	} {
 		published["~"+topic] = true

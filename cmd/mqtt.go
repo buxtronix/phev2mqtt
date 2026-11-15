@@ -250,11 +250,9 @@ func (m *mqttClient) connectMQTT() {
 				log.Errorf("Error subscribing to %s: %v", t, token.Error())
 			}
 		}
-		availability := "offline"
-		if m.state.isConnected() {
-			availability = "online"
-		}
-		mqtt_client.Publish(m.topic("/available"), 0, true, availability)
+		// The will says offline when this connection breaks.
+		mqtt_client.Publish(m.topic(gatewayAvailableTopic), 0, true, "online")
+		mqtt_client.Publish(m.topic(availableTopic), 0, true, m.availabilityPayload())
 		// A broker without persistence forgets retained values on restart.
 		for _, t := range []string{"/connection/last_connected", "/connection/last_disconnected"} {
 			if v := m.state.value(t); v != "" {
@@ -284,7 +282,7 @@ func (m *mqttClient) connectMQTT() {
 			log.Warnf("Lost connection to MQTT broker: %v", err)
 			m.state.notify()
 		}).
-		SetWill(m.topic("/available"), "offline", 0, true)
+		SetWill(m.topic(gatewayAvailableTopic), "offline", 1, true)
 
 	c := mqtt.NewClient(options)
 	m.mqttMu.Lock()
@@ -336,10 +334,6 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 					log.Error(err)
 					m.lastError = err
 				}
-			}
-			// Publish as offline if last connection was >30s ago.
-			if m.state.sinceLastConnect() > 30*time.Second {
-				m.mqttPublish(m.topic("/available"), 0, true, "offline")
 			}
 			// Restart Wifi interface if > wifi_restart_time.
 			if wifiRestartTime > 0 && m.state.sinceLastConnect() > wifiRestartTime {
@@ -429,9 +423,8 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 			m.haPublishedDiscovery = false
 			m.mqttMu.Unlock()
 			m.republishDiscovery()
-			if m.state.isConnected() {
-				m.mqttPublish(m.topic("/available"), 0, true, "online")
-			}
+			m.mqttPublish(m.topic(gatewayAvailableTopic), 0, true, "online")
+			m.mqttPublish(m.topic(availableTopic), 0, true, m.availabilityPayload())
 		}
 	} else if msg.Topic() == m.topic("/restart") {
 		// A retained one would restart every new start again.
@@ -466,12 +459,12 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 			if phev != nil {
 				phev.Close()
 			}
-			m.mqttPublish(m.topic("/available"), 0, true, "offline")
+			m.setAvailable(false, "connection turned off")
 		case "on":
 			m.state.setEnabled(true)
 		case "restart":
 			m.state.setEnabled(true)
-			m.mqttPublish(m.topic("/available"), 0, true, "offline")
+			m.setAvailable(false, "reconnecting on request")
 			if phev != nil {
 				phev.Close()
 			}
@@ -601,7 +594,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	}
 	// ModelYear is set before Start returns; later changes would race.
 	m.state.setConnected(true, phev.ModelYear)
-	m.mqttPublish(m.topic("/available"), 0, true, "online")
+	// phev/available goes online with the first data from the car (carData).
 	m.publishRetained("/connection/last_connected", time.Now().Format(time.RFC3339))
 	m.publishWifiSignal(m.wifiIface)
 
@@ -609,6 +602,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 
 	defer func() {
 		m.state.setConnected(false, client.ModelYearUnknown)
+		m.carDisconnected()
 		m.publishRetained("/connection/last_disconnected", time.Now().Format(time.RFC3339))
 	}()
 
@@ -619,6 +613,12 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	for {
 		select {
 		case <-updaterTicker.C:
+			if m.staleCar() {
+				// Answers pings, perhaps, but no data: asleep or gone.
+				m.setAvailable(false, fmt.Sprintf("no data for %v, reconnecting", m.updateInterval))
+				updaterTicker.Stop()
+				return fmt.Errorf("No data from the car")
+			}
 			m.publishWifiSignal(m.wifiIface)
 			// Not inline: SetRegister waits up to 10s for the ack, which the
 			// reader can only deliver while this loop keeps draining Recv.
@@ -649,6 +649,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 					break
 				}
 				m.publishRegister(msg)
+				m.carData()
 				if err := phev.SendMessage(&protocol.PhevMessage{
 					Type:     protocol.CmdOutSend,
 					Register: msg.Register,
@@ -761,7 +762,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/door/locked",
 		"payload_off": "closed",
 		"payload_on": "open",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___door_locked",
 		"device": {
 			"name": "__DEVICE__",
@@ -775,7 +777,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/door/bonnet",
 		"payload_off": "closed",
 		"payload_on": "open",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___door_bonnet",
 		"device": {
 			"name": "__DEVICE__",
@@ -789,7 +792,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/door/boot",
 		"payload_off": "closed",
 		"payload_on": "open",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___door_boot",
 		"dev": {
 			"name": "__DEVICE__",
@@ -804,7 +808,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/door/front_passenger",
 		"payload_off": "closed",
 		"payload_on": "open",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___door_front_passenger",
 		"dev": {
 			"name": "__DEVICE__",
@@ -819,7 +824,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/door/driver",
 		"payload_off": "closed",
 		"payload_on": "open",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___door_driver",
 		"dev": {
 			"name": "__DEVICE__",
@@ -834,7 +840,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/door/rear_left",
 		"payload_off": "closed",
 		"payload_on": "open",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___door_rear_left",
 		"dev": {
 			"name": "__DEVICE__",
@@ -849,7 +856,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/door/rear_right",
 		"payload_off": "closed",
 		"payload_on": "open",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___door_rear_right",
 		"dev": {
 			"name": "__DEVICE__",
@@ -866,7 +874,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/battery/level",
 		"state_class": "measurement",
 		"unit_of_measurement": "%",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___battery_level",
 		"dev": {
 			"name": "__DEVICE__",
@@ -879,7 +888,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"name": "Charge Remaining",
 		"state_topic": "~/charge/remaining",
 		"unit_of_measurement": "min",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___battery_charge_remaining",
 		"dev": {
 			"name": "__DEVICE__",
@@ -894,7 +904,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/charge/plug",
 		"payload_on": "connected",
 		"payload_off": "unplugged",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___charger_connected",
 		"dev": {
 			"name": "__DEVICE__",
@@ -909,7 +920,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/charge/charging",
 		"payload_on": "on",
 		"payload_off": "off",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___battery_charging",
 		"dev": {
 			"name": "__DEVICE__",
@@ -925,7 +937,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_on": "on",
 		"state_off": "off",
 		"command_topic": "~/set/cancelchargetimer",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___cancel_charge_timer",
 		"dev": {
 			"name": "__DEVICE__",
@@ -942,7 +955,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"command_topic": "~/set/climate/heat",
 		"payload_off": "off",
 		"payload_on": "on",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___climate_heat",
 		"dev": {
 			"name": "__DEVICE__",
@@ -958,7 +972,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"command_topic": "~/set/climate/cool",
 		"payload_off": "off",
 		"payload_on": "on",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___climate_cool",
 		"dev": {
 			"name": "__DEVICE__",
@@ -973,7 +988,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"command_topic": "~/set/climate/windscreen",
 		"payload_off": "off",
 		"payload_on": "on",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___climate_windscreen",
 		"dev": {
 			"name": "__DEVICE__",
@@ -989,7 +1005,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 				"value_template": "{{ value if value in ['off', 'heat', 'cool', 'windscreen'] else 'off' }}",
 				"command_topic": "~/set/climate/mode",
 				"options": [ "off", "heat", "cool", "windscreen"],
-				"avty_t": "~/available",
+				"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+				"availability_mode": "all",
 				"unique_id": "__VIN___climate_on",
 		"dev": {
 			"name": "__DEVICE__",
@@ -1007,7 +1024,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"command_topic": "~/set/parkinglights",
 		"payload_off": "off",
 		"payload_on": "on",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___parkinglights",
 		"dev": {
 			"name": "__DEVICE__",
@@ -1023,7 +1041,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"command_topic": "~/set/headlights",
 		"payload_off": "off",
 		"payload_on": "on",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___headlights",
 		"dev": {
 			"name": "__DEVICE__",
@@ -1039,7 +1058,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/lights/interior",
 		"payload_off": "off",
 		"payload_on": "on",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___interiorlights",
 		"dev": {
 			"name": "__DEVICE__",
@@ -1055,7 +1075,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/lights/hazard",
 		"payload_off": "off",
 		"payload_on": "on",
-		"avty_t": "~/available",
+		"availability": [{"topic": "~/gateway/available"}, {"topic": "~/available"}],
+		"availability_mode": "all",
 		"unique_id": "__VIN___hazardlights",
 		"dev": {
 			"name": "__DEVICE__",
@@ -1064,15 +1085,33 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 			"model": "Outlander PHEV"
 		},
 		"~": "__TOPIC__"}`,
-		// Connection. Without avty_t: these must show the car being away,
-		// not turn unavailable.
+		// Connection and WiFi: only unavailable with the gateway, so that
+		// they show the car being away.
 		"%s/binary_sensor/%s_connection/config": `{
 		"device_class": "connectivity",
 		"name": "Connection",
 		"state_topic": "~/available",
 		"payload_on": "online",
 		"payload_off": "offline",
+		"avty_t": "~/gateway/available",
 		"unique_id": "__VIN___connection",
+		"dev": {
+			"name": "__DEVICE__",
+			"identifiers": ["phev-__VIN__"],
+			"manufacturer": "Mitsubishi",
+			"model": "Outlander PHEV"
+		},
+		"~": "__TOPIC__"}`,
+		// The gateway itself, from its MQTT will: tells "car away" from
+		// "gateway down".
+		"%s/binary_sensor/%s_gateway/config": `{
+		"device_class": "connectivity",
+		"name": "Gateway",
+		"state_topic": "~/gateway/available",
+		"payload_on": "online",
+		"payload_off": "offline",
+		"entity_category": "diagnostic",
+		"unique_id": "__VIN___gateway",
 		"dev": {
 			"name": "__DEVICE__",
 			"identifiers": ["phev-__VIN__"],
@@ -1086,6 +1125,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/wifi/state",
 		"payload_on": "connected",
 		"payload_off": "disconnected",
+		"avty_t": "~/gateway/available",
 		"entity_category": "diagnostic",
 		"unique_id": "__VIN___wifi",
 		"dev": {
@@ -1101,9 +1141,10 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"state_topic": "~/wifi/signal",
 		"unit_of_measurement": "dBm",
 		"state_class": "measurement",
-		"avty_t": "~/wifi/state",
-		"payload_available": "connected",
-		"payload_not_available": "disconnected",
+		"availability": [
+			{"topic": "~/gateway/available"},
+			{"topic": "~/wifi/state", "payload_available": "connected", "payload_not_available": "disconnected"}],
+		"availability_mode": "all",
 		"entity_category": "diagnostic",
 		"unique_id": "__VIN___wifi_signal",
 		"dev": {
@@ -1116,6 +1157,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"%s/sensor/%s_last_connected/config": `{
 		"device_class": "timestamp",
 		"name": "Last connected",
+		"avty_t": "~/gateway/available",
 		"state_topic": "~/connection/last_connected",
 		"entity_category": "diagnostic",
 		"unique_id": "__VIN___last_connected",
@@ -1129,6 +1171,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"%s/sensor/%s_last_disconnected/config": `{
 		"device_class": "timestamp",
 		"name": "Last disconnected",
+		"avty_t": "~/gateway/available",
 		"state_topic": "~/connection/last_disconnected",
 		"entity_category": "diagnostic",
 		"unique_id": "__VIN___last_disconnected",
@@ -1160,7 +1203,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"icon": "mdi:car-connected",
 		"command_topic": "~/connection",
 		"payload_press": "restart",
-		"avty_t": "~/available",
+		"avty_t": "~/gateway/available",
 		"unique_id": "__VIN___restart_wifi",
 		"dev": {
 			"name": "__DEVICE__",

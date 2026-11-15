@@ -98,9 +98,12 @@ func TestDiscoveryConnectionEntities(t *testing.T) {
 			t.Errorf("%s has an unreplaced placeholder: %s", topic, d)
 		}
 	}
-	// The connection sensor must show the car being away, not turn
-	// unavailable along with the car's other entities.
-	if d := b.published["homeassistant/binary_sensor/VIN1_connection/config"]; strings.Contains(d, "avty_t") {
-		t.Errorf("connection sensor has an availability topic: %s", d)
+	// The connection sensor must show the car being away, so it is only
+	// unavailable along with the gateway, not with the car.
+	for _, e := range []string{"binary_sensor/VIN1_connection", "binary_sensor/VIN1_wifi", "binary_sensor/VIN1_gateway"} {
+		d := b.published["homeassistant/"+e+"/config"]
+		if strings.Contains(d, `"~/available"}`) || strings.Contains(d, `"avty_t": "~/available"`) {
+			t.Errorf("%s turns unavailable with the car: %s", e, d)
+		}
 	}
 }
