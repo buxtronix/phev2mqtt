@@ -17,10 +17,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"encoding/json"
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/buxtronix/phev2mqtt/client"
 	"github.com/buxtronix/phev2mqtt/protocol"
@@ -79,19 +79,23 @@ func (c *climate) mqttStates() map[string]string {
 		return m
 	}
 	switch *c.state {
-	case protocol.PreACOn: m["/climate/state"] = *c.mode
-	case protocol.PreACOff: {
-		m["/climate/state"] = "off"
-		return m
-	}
-	case protocol.PreACTerminated: {
-		m["/climate/state"] = "terminated"
-		return m
-	}
-	default: {
-		m["/climate/state"] = "unknown"
-		return m
-	}
+	case protocol.PreACOn:
+		m["/climate/state"] = *c.mode
+	case protocol.PreACOff:
+		{
+			m["/climate/state"] = "off"
+			return m
+		}
+	case protocol.PreACTerminated:
+		{
+			m["/climate/state"] = "terminated"
+			return m
+		}
+	default:
+		{
+			m["/climate/state"] = "unknown"
+			return m
+		}
 	}
 	m["/climate/state"] = *c.mode
 	switch *c.mode {
@@ -135,7 +139,7 @@ func runWifiRestart() error {
 	restartCmd := exec.CommandContext(ctx, "/bin/sh", "-c", restartCommand)
 
 	stdoutStderr, err := restartCmd.CombinedOutput()
-	if len( stdoutStderr ) > 0 {
+	if len(stdoutStderr) > 0 {
 		log.Infof("Output from wifi restart: %s", stdoutStderr)
 	}
 	return err
@@ -274,7 +278,7 @@ func (m *mqttClient) connectMQTT() {
 		SetPassword(password).
 		SetAutoReconnect(true).
 		SetConnectRetry(true).
-		SetConnectRetryInterval(10 * time.Second).
+		SetConnectRetryInterval(10*time.Second).
 		SetMaxReconnectInterval(time.Minute).
 		SetDefaultPublishHandler(m.safeHandleIncomingMqtt).
 		SetOnConnectHandler(onConnect).
@@ -722,7 +726,7 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 			m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
 		} else {
 			if cache := m.state.value("/battery/level"); cache != "" {
-				m.publish("/battery/level", cache )
+				m.publish("/battery/level", cache)
 				log.Debugf("Ignoring battery level reading: %v, publishing last best known: %v", reg.Level, cache)
 			}
 		}
