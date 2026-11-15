@@ -52,36 +52,29 @@ func Run(cmd *cobra.Command, args []string) {
 
 	var registers = map[byte]string{}
 
-	for {
-		select {
-		case m, ok := <-cl.Recv:
-			if !ok {
-				log.Infof("Connection closed.")
-				return
-			}
-			switch m.Type {
-			case protocol.CmdInResp:
-				dataStr := hex.EncodeToString(m.Data)
-				if data := registers[m.Register]; data != dataStr {
-					log.Infof("%%PHEV_REG_UPDATE%% %02x: %s -> %s", m.Register, data, dataStr)
-					registers[m.Register] = dataStr
-					if _, ok := m.Reg.(*protocol.RegisterGeneric); !ok {
-						log.Infof("%%PHEV_REG_UPDATE%% %02x: [%s]", m.Register, m.Reg.String())
-					}
-				}
-				if err := cl.SendMessage(&protocol.PhevMessage{
-					Type:     protocol.CmdOutSend,
-					Register: m.Register,
-					Ack:      protocol.Ack,
-					Xor:      m.Xor,
-					Data:     []byte{0x0},
-				}); err != nil {
-					log.Infof("Connection closed.")
-					return
-				}
+	for m := range cl.Recv {
+		if m.Type != protocol.CmdInResp {
+			continue
+		}
+		dataStr := hex.EncodeToString(m.Data)
+		if data := registers[m.Register]; data != dataStr {
+			log.Infof("%%PHEV_REG_UPDATE%% %02x: %s -> %s", m.Register, data, dataStr)
+			registers[m.Register] = dataStr
+			if _, ok := m.Reg.(*protocol.RegisterGeneric); !ok {
+				log.Infof("%%PHEV_REG_UPDATE%% %02x: [%s]", m.Register, m.Reg.String())
 			}
 		}
+		if err := cl.SendMessage(&protocol.PhevMessage{
+			Type:     protocol.CmdOutSend,
+			Register: m.Register,
+			Ack:      protocol.Ack,
+			Xor:      m.Xor,
+			Data:     []byte{0x0},
+		}); err != nil {
+			break
+		}
 	}
+	log.Infof("Connection closed.")
 }
 
 func init() {

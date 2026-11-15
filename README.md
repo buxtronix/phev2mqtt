@@ -33,6 +33,10 @@ sha256sum -c --ignore-missing SHA256SUMS
 sudo apt install "./$deb"
 ```
 
+Releases after 0.5.0 also carry build provenance: `gh attestation verify "$deb" --repo
+athomasse/phev2mqtt-nxt` checks that the package was built by this repository's release
+workflow.
+
 Turn on the web interface in `/etc/phev2mqtt/config.yaml` (`sudoedit` it):
 
 ```
