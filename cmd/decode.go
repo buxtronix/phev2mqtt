@@ -28,8 +28,8 @@ var decodeCmd = &cobra.Command{
 Commands for decoding messages to and from a Phev.
 Subcommands provide specific functionality, see below.
 `,
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
 	},
 }
 

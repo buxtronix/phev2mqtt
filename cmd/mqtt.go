@@ -17,10 +17,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"encoding/json"
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/buxtronix/phev2mqtt/client"
 	"github.com/buxtronix/phev2mqtt/protocol"
@@ -79,19 +79,23 @@ func (c *climate) mqttStates() map[string]string {
 		return m
 	}
 	switch *c.state {
-	case protocol.PreACOn: m["/climate/state"] = *c.mode
-	case protocol.PreACOff: {
-		m["/climate/state"] = "off"
-		return m
-	}
-	case protocol.PreACTerminated: {
-		m["/climate/state"] = "terminated"
-		return m
-	}
-	default: {
-		m["/climate/state"] = "unknown"
-		return m
-	}
+	case protocol.PreACOn:
+		m["/climate/state"] = *c.mode
+	case protocol.PreACOff:
+		{
+			m["/climate/state"] = "off"
+			return m
+		}
+	case protocol.PreACTerminated:
+		{
+			m["/climate/state"] = "terminated"
+			return m
+		}
+	default:
+		{
+			m["/climate/state"] = "unknown"
+			return m
+		}
 	}
 	m["/climate/state"] = *c.mode
 	switch *c.mode {
@@ -110,7 +114,7 @@ var lastWifiRestart time.Time
 func restartWifi(cmd *cobra.Command) error {
 	restartRetryTime := cfgDuration("wifi_restart_retry_time")
 
-	if time.Now().Sub(lastWifiRestart) < restartRetryTime {
+	if time.Since(lastWifiRestart) < restartRetryTime {
 		return nil
 	}
 	defer func() {
@@ -135,7 +139,7 @@ func runWifiRestart() error {
 	restartCmd := exec.CommandContext(ctx, "/bin/sh", "-c", restartCommand)
 
 	stdoutStderr, err := restartCmd.CombinedOutput()
-	if len( stdoutStderr ) > 0 {
+	if len(stdoutStderr) > 0 {
 		log.Infof("Output from wifi restart: %s", stdoutStderr)
 	}
 	return err
@@ -274,7 +278,7 @@ func (m *mqttClient) connectMQTT() {
 		SetPassword(password).
 		SetAutoReconnect(true).
 		SetConnectRetry(true).
-		SetConnectRetryInterval(10 * time.Second).
+		SetConnectRetryInterval(10*time.Second).
 		SetMaxReconnectInterval(time.Minute).
 		SetDefaultPublishHandler(m.safeHandleIncomingMqtt).
 		SetOnConnectHandler(onConnect).
@@ -532,7 +536,8 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 		}
 
 		my := m.state.getModelYear()
-		if my == client.ModelYear14 {
+		switch my {
+		case client.ModelYear14:
 			// Set the AC mode first
 			registerPayload := bytes.Repeat([]byte{0xff}, 15)
 			registerPayload[0] = 0x0
@@ -553,7 +558,7 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 				log.Infof("Error setting AC enabled state: %v", err)
 				return
 			}
-		} else if my == client.ModelYear18 || my == client.ModelYear24 {
+		case client.ModelYear18, client.ModelYear24:
 			state := byte(0x02)
 			if mode == 0x0 {
 				state = 0x1
@@ -562,7 +567,7 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 				log.Infof("Error setting AC mode: %v", err)
 				return
 			}
-		} else {
+		default:
 			log.Errorf("Ignoring climate command: model year of the car not known yet")
 		}
 	} else if msg.Topic() == m.topic("/settings/dump") {
@@ -617,7 +622,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 				// Answers pings, perhaps, but no data: asleep or gone.
 				m.setAvailable(false, fmt.Sprintf("no data for %v, reconnecting", m.updateInterval))
 				updaterTicker.Stop()
-				return fmt.Errorf("No data from the car")
+				return fmt.Errorf("no data from the car")
 			}
 			m.publishWifiSignal(m.wifiIface)
 			// Not inline: SetRegister waits up to 10s for the ack, which the
@@ -631,16 +636,16 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 			if !ok {
 				log.Infof("Connection closed.")
 				updaterTicker.Stop()
-				return fmt.Errorf("Connection closed.")
+				return fmt.Errorf("connection closed")
 			}
 			switch msg.Type {
 			case protocol.CmdInBadEncoding:
-				if time.Now().Sub(lastEncodingError) > 15*time.Second {
+				if time.Since(lastEncodingError) > 15*time.Second {
 					encodingErrorCount = 0
 				}
 				if encodingErrorCount > 50 {
 					updaterTicker.Stop()
-					return fmt.Errorf("Disconnecting due to too many errors")
+					return fmt.Errorf("disconnecting due to too many errors")
 				}
 				encodingErrorCount += 1
 				lastEncodingError = time.Now()
@@ -722,7 +727,7 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 			m.publish("/battery/level", fmt.Sprintf("%d", reg.Level))
 		} else {
 			if cache := m.state.value("/battery/level"); cache != "" {
-				m.publish("/battery/level", cache )
+				m.publish("/battery/level", cache)
 				log.Debugf("Ignoring battery level reading: %v, publishing last best known: %v", reg.Level, cache)
 			}
 		}
@@ -1223,7 +1228,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 	for topic, d := range discoveryData {
 		topic = fmt.Sprintf(topic, discoveryPrefix, vin)
 		for in, out := range mappings {
-			d = strings.Replace(d, in, out, -1)
+			d = strings.ReplaceAll(d, in, out)
 		}
 		m.mqttPublish(topic, 1, true, d)
 	}

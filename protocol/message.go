@@ -38,11 +38,6 @@ const (
 	Ack     byte = 0x1
 )
 
-var ackStr = map[byte]string{
-	0x0: "REQ",
-	0x1: "ACK",
-}
-
 var messageStr = map[byte]string{
 	0xf3: "PingReq",
 	0x3f: "PingResp",

@@ -13,13 +13,14 @@ go build                      # ./phev2mqtt; pure Go, no cgo
 go build -tags pcap           # adds `decode pcap` (cmd/pcap.go), needs libpcap-dev
 go vet ./...                  # CI runs this
 go test -race ./...           # CI runs this
+golangci-lint run --build-tags pcap ./...   # CI runs this (.golangci.yml: gofmt + standard linters)
 go test -race ./cmd -run TestName   # a single test
 packaging/build.sh 0.4.0      # cross-compiled binaries + .debs into dist/ (needs nfpm on PATH)
 ./phev2mqtt emulator          # fake car to point a client at
 ./phev2mqtt client mqtt --config=/dev/null --mqtt_server tcp://host:1883 -v debug
 ```
 
-CI (`.github/workflows/build.yaml`) vets, tests, builds linux amd64/arm64/armv6/386 with `CGO_ENABLED=0` (so the `pcap` tag is never built in CI), smoke-tests the amd64 `.deb` including its maintainer scripts, and publishes a GitHub release on a `v*` tag. Two versions are injected with `-ldflags -X`: `cmd.Version` (the Debian version, `0.0.0~git<time>.<hash>` for untagged builds, shown by `--version`) and `cmd.Release` (the last `v*` tag without the `v`, shown in the web interface so it matches GitHub releases; CI checks out with `fetch-depth: 0` for this).
+CI (`.github/workflows/build.yaml`) vets, tests, builds linux amd64/arm64/armv6/386 with `CGO_ENABLED=0` (the `pcap` tag only gets a separate vet and build, with libpcap-dev), smoke-tests the amd64 `.deb` including its maintainer scripts, and publishes a GitHub release with build provenance attestations (from `SHA256SUMS`) on a `v*` tag. `lint.yaml` runs golangci-lint (v2, `.golangci.yml`): code must be gofmt-formatted and lint-clean; errors are checked unless the call is in the errcheck exclusions there. Two versions are injected with `-ldflags -X`: `cmd.Version` (the Debian version, `0.0.0~git<time>.<hash>` for untagged builds, shown by `--version`) and `cmd.Release` (the last `v*` tag without the `v`, shown in the web interface so it matches GitHub releases; CI checks out with `fetch-depth: 0` for this).
 
 ## Architecture
 

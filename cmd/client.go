@@ -29,8 +29,8 @@ var clientCmd = &cobra.Command{
 Client functionality for connecting and interacting with
 the vehicle. Please see subcommands for available functions.
 Requires Wifi reachability to the vehicle.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
 	},
 }
 

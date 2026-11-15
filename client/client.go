@@ -208,20 +208,17 @@ var startTimeout = 20 * time.Second
 // Start waits for the client to start.
 func (c *Client) Start() error {
 	log.Debug("%%PHEV_START_AWAIT%%")
-	startTimer := time.After(startTimeout)
-	for {
-		select {
-		case _, ok := <-c.started:
-			if !ok {
-				log.Debug("%%PHEV_START_CLOSED%%")
-				return fmt.Errorf("receiver closed before getting start request")
-			}
-			log.Debug("%%PHEV_START_DONE%%")
-		case <-startTimer:
-			log.Debug("%%PHEV_START_TIMEOUT%%")
-			return fmt.Errorf("timed out waiting for start")
+	select {
+	case _, ok := <-c.started:
+		if !ok {
+			log.Debug("%%PHEV_START_CLOSED%%")
+			return fmt.Errorf("receiver closed before getting start request")
 		}
+		log.Debug("%%PHEV_START_DONE%%")
 		return nil
+	case <-time.After(startTimeout):
+		log.Debug("%%PHEV_START_TIMEOUT%%")
+		return fmt.Errorf("timed out waiting for start")
 	}
 }
 
@@ -266,21 +263,6 @@ SETREG:
 	}
 }
 
-func (c *Client) nextRecvMsg(deadline time.Time) (*protocol.PhevMessage, error) {
-	timer := time.After(deadline.Sub(time.Now()))
-	for {
-		select {
-		case <-timer:
-			return nil, fmt.Errorf("timed out waiting for message")
-		case m, ok := <-c.Recv:
-			if !ok {
-				return nil, fmt.Errorf("error: receive channel closed")
-			}
-			return m, nil
-		}
-	}
-}
-
 // Sends periodic pings to the car.
 func (c *Client) pinger() {
 	pingSeq := byte(0xa)
@@ -313,7 +295,9 @@ func (c *Client) manage() {
 		switch m.Type {
 		case protocol.CmdInResp:
 			if m.Ack == protocol.Request && m.Register == protocol.SettingsRegister {
-				c.Settings.FromRegister(m.Data)
+				if err := c.Settings.FromRegister(m.Data); err != nil {
+					log.Debugf("%%PHEV_SETTINGS%%: %v", err)
+				}
 			}
 		case protocol.CmdInStartResp:
 			if err := c.SendMessage(protocol.NewPingRequestMessage(0xa)); err != nil {

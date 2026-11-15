@@ -17,12 +17,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"os"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"github.com/wercker/journalhook"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/wercker/journalhook"
+	"os"
 )
 
 var (
@@ -70,8 +70,8 @@ var rootCmd = &cobra.Command{
 			})
 		} else {
 			log.SetFormatter(&log.TextFormatter{
-				FullTimestamp: false,
-				DisableColors: true,
+				FullTimestamp:    false,
+				DisableColors:    true,
 				DisableTimestamp: true,
 			})
 		}

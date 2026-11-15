@@ -173,7 +173,9 @@ func TestWebMQTTSettings(t *testing.T) {
 		t.Fatal("GET /api/mqtt returned the password")
 	}
 	var got mqttSettings
-	json.Unmarshal(rec.Body.Bytes(), &got)
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
 	if !got.PasswordSet {
 		t.Error("password_set: got false, want true")
 	}
@@ -209,7 +211,9 @@ func TestWebMQTTSettings(t *testing.T) {
 
 func TestReadWebSettingsIgnoresOtherKeys(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "settings.yaml")
-	os.WriteFile(file, []byte("mqtt_server: tcp://b:1883\naddress: 10.0.0.1:1\nweb_password: x\n"), 0o600)
+	if err := os.WriteFile(file, []byte("mqtt_server: tcp://b:1883\naddress: 10.0.0.1:1\nweb_password: x\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	got, err := readWebSettings(file)
 	if err != nil {
 		t.Fatal(err)
@@ -222,7 +226,9 @@ func TestReadWebSettingsIgnoresOtherKeys(t *testing.T) {
 func TestLogRing(t *testing.T) {
 	r := newLogRing(3)
 	for _, msg := range []string{"a", "b", "c", "d"} {
-		r.Fire(&log.Entry{Message: msg, Level: log.InfoLevel, Data: log.Fields{"k": 1}})
+		if err := r.Fire(&log.Entry{Message: msg, Level: log.InfoLevel, Data: log.Fields{"k": 1}}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	lines := r.since(0)
 	if len(lines) != 3 || lines[0].Message != "b k=1" || lines[2].Seq != 4 {
@@ -360,14 +366,18 @@ func TestWebStateShowsRelease(t *testing.T) {
 
 	Version, Release = "0.0.0~git20261113120000.abc1234", "0.4.0"
 	var st webState
-	json.Unmarshal(request(t, ws, "GET", "/api/state", "", "", false).Body.Bytes(), &st)
+	if err := json.Unmarshal(request(t, ws, "GET", "/api/state", "", "", false).Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
 	if st.Version != "0.4.0" || st.Build != Version {
 		t.Errorf("version %q build %q; want the release and the full build", st.Version, st.Build)
 	}
 
 	// A build without a release number still shows something.
 	Version, Release = "dev", ""
-	json.Unmarshal(request(t, ws, "GET", "/api/state", "", "", false).Body.Bytes(), &st)
+	if err := json.Unmarshal(request(t, ws, "GET", "/api/state", "", "", false).Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
 	if st.Version != "dev" {
 		t.Errorf("version %q, want dev", st.Version)
 	}

@@ -65,7 +65,7 @@ func TestSendsDoNotBlockAfterClose(t *testing.T) {
 	sends := make(chan struct{})
 	go func() {
 		for i := 0; i < 10; i++ {
-			cl.SendMessage(protocol.NewPingRequestMessage(byte(i)))
+			_ = cl.SendMessage(protocol.NewPingRequestMessage(byte(i)))
 		}
 		close(sends)
 	}()

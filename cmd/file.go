@@ -48,7 +48,7 @@ Decode raw hex string messages from the provided filename.
 		if err != nil {
 			panic(err)
 		}
-		dat := strings.Replace(string(inData[:n]), "\n", "", -1)
+		dat := strings.ReplaceAll(string(inData[:n]), "\n", "")
 		binData, err := hex.DecodeString(dat)
 		if err != nil {
 			panic(err)

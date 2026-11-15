@@ -125,7 +125,8 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	// An error here means the client is gone; nothing left to tell it.
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
@@ -141,7 +142,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v interface{}) error {
 func (ws *webServer) index(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Write(webIndex)
+	_, _ = w.Write(webIndex)
 }
 
 type webState struct {
@@ -180,11 +181,16 @@ func (ws *webServer) events(w http.ResponseWriter, r *http.Request) {
 	for {
 		stateChanged, logChanged := ws.m.state.changes(), ws.logs.changes()
 		state, _ := json.Marshal(ws.currentState())
-		fmt.Fprintf(w, "event: state\ndata: %s\n\n", state)
+		// A failing write means the browser is gone.
+		if _, err := fmt.Fprintf(w, "event: state\ndata: %s\n\n", state); err != nil {
+			return
+		}
 		if lines := ws.logs.since(logSeq); len(lines) > 0 {
 			logSeq = lines[len(lines)-1].Seq
 			data, _ := json.Marshal(lines)
-			fmt.Fprintf(w, "event: log\ndata: %s\n\n", data)
+			if _, err := fmt.Fprintf(w, "event: log\ndata: %s\n\n", data); err != nil {
+				return
+			}
 		}
 		flusher.Flush()
 		select {
