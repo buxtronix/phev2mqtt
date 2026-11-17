@@ -318,6 +318,10 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.lastError = nil
 	m.wifiIface = cfgString("wifi_interface")
 	m.wifi = &wifiManager{iface: m.wifiIface}
+	carReconnect := m.wifiIface != "" && nmcliAvailable()
+	if m.wifiIface != "" && !carReconnect {
+		log.Infof("nmcli not found: the car's WiFi is left to the system, also when it stops reconnecting")
+	}
 
 	if listen := cfgString("web_listen"); listen != "" {
 		web, err := newWebServer(m, listen, cfgString("web_password"), cfgBool("web_auth"))
@@ -350,26 +354,16 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 				}
 			}
 			// Bring the car's WiFi back when NetworkManager gave up on it.
-			if m.wifiIface != "" && m.state.wifiDownFor() >= carReconnectInterval &&
+			if carReconnect && m.state.wifiDownFor() >= carReconnectInterval &&
 				time.Since(lastCarReconnect) >= carReconnectInterval {
 				lastCarReconnect = time.Now()
-				go m.reconnectCarWifi()
+				// In the background: bringing a connection up takes up to
+				// nmcliTimeout, which must not hold up the car loop.
+				go m.wifi.reconnectCar()
 			}
 		}
 
 		time.Sleep(time.Second)
-	}
-}
-
-// reconnectCarWifi runs wifiManager.reconnectCar for the car loop, which
-// it must not hold up: bringing a connection up takes up to nmcliTimeout.
-func (m *mqttClient) reconnectCarWifi() {
-	tried, err := m.wifi.reconnectCar()
-	switch {
-	case tried && err != nil:
-		log.Warnf("Reconnecting the car's WiFi: %v", err)
-	case err != nil:
-		log.Debugf("Car WiFi reconnect check: %v", err)
 	}
 }
 

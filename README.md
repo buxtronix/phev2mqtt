@@ -56,7 +56,10 @@ In the web interface:
 
 1. **Car WiFi**: the car's network (*REMOTExxxxxx*) and its password, which come with the
    car. This needs NetworkManager; without it, see the examples in
-   `/usr/share/doc/phev2mqtt/examples/`.
+   `/usr/share/doc/phev2mqtt/examples/`. With NetworkManager, phev2mqtt also
+   reconnects this network itself when the car is in range but NetworkManager
+   stopped trying, as it does when the car drives off halfway through
+   connecting.
 2. **MQTT**: your broker, e.g. `tcp://192.168.1.10:1883`, with its user name and
    password.
 3. Optionally the car's **name in Home Assistant**.
