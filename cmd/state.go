@@ -34,6 +34,7 @@ type gatewayState struct {
 	// The car's WiFi interface; wifiKnown is false until watchWifi reports.
 	wifi      bool
 	wifiKnown bool
+	wifiSince time.Time // last change of wifi
 
 	// Closed and replaced on every change, see changes().
 	changed chan struct{}
@@ -123,9 +124,23 @@ func (s *gatewayState) setConnected(connected bool, my client.ModelYear) {
 func (s *gatewayState) setWifiUp(up bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !s.wifiKnown || s.wifi != up {
+		s.wifiSince = time.Now()
+	}
 	s.wifi = up
 	s.wifiKnown = true
 	s.notifyLocked()
+}
+
+// wifiDownFor is how long the car's WiFi has been down; 0 when it is up or
+// nothing watches it.
+func (s *gatewayState) wifiDownFor() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.wifiKnown || s.wifi {
+		return 0
+	}
+	return time.Since(s.wifiSince)
 }
 
 // wifiUp reports whether the car's WiFi is connected; known is false when

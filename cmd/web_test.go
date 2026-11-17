@@ -253,6 +253,56 @@ func TestParseNmcli(t *testing.T) {
 	}
 }
 
+func TestDeviceIdle(t *testing.T) {
+	for state, want := range map[string]bool{
+		"30 (disconnected)":                     true,
+		"20 (unavailable)":                      false,
+		"10 (unmanaged)":                        false,
+		"50 (connecting (configuring))":         false,
+		"60 (connecting (need authentication))": false,
+		"100 (connected)":                       false,
+		"":                                      false,
+	} {
+		if got := deviceIdle(state); got != want {
+			t.Errorf("deviceIdle(%q) = %v, want %v", state, got, want)
+		}
+	}
+}
+
+func TestSSIDListed(t *testing.T) {
+	out := "punt\n\nREMOTE34fuvm\nodd\\:name\n"
+	for ssid, want := range map[string]bool{
+		"REMOTE34fuvm": true,
+		"odd:name":     true,
+		"REMOTE":       false,
+		"":             false,
+	} {
+		if got := ssidListed(out, ssid); got != want {
+			t.Errorf("ssidListed(%q) = %v, want %v", ssid, got, want)
+		}
+	}
+}
+
+func TestWifiDownFor(t *testing.T) {
+	s := newGatewayState()
+	if d := s.wifiDownFor(); d != 0 {
+		t.Errorf("unknown: %v, want 0", d)
+	}
+	s.setWifiUp(true)
+	if d := s.wifiDownFor(); d != 0 {
+		t.Errorf("up: %v, want 0", d)
+	}
+	s.setWifiUp(false)
+	s.mu.Lock()
+	s.wifiSince = time.Now().Add(-time.Hour)
+	s.mu.Unlock()
+	// A repeated report does not restart the clock.
+	s.setWifiUp(false)
+	if d := s.wifiDownFor(); d < time.Hour {
+		t.Errorf("down: %v, want >= 1h", d)
+	}
+}
+
 func TestConnectCarValidation(t *testing.T) {
 	w := &wifiManager{iface: "wlan0"}
 	for _, tc := range [][3]string{

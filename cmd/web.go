@@ -51,7 +51,10 @@ func newWebServer(m *mqttClient, listen, password string, auth bool) (*webServer
 		listen:   listen,
 		password: password,
 		logs:     newLogRing(500),
-		wifi:     &wifiManager{iface: cfgString("wifi_interface")},
+		wifi:     m.wifi,
+	}
+	if ws.wifi == nil {
+		ws.wifi = &wifiManager{iface: cfgString("wifi_interface")}
 	}
 	log.AddHook(ws.logs)
 
