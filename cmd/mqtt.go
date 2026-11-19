@@ -149,8 +149,10 @@ type mqttClient struct {
 	updateInterval time.Duration
 	lastError      error
 	climate        *climate
-	// The car's WiFi interface (wifi_interface); set before anything runs.
+	// The car's WiFi interface (wifi_interface) and its NetworkManager
+	// profile, shared with the web interface; set before anything runs.
 	wifiIface string
+	wifi      *wifiManager
 
 	// Shared with the MQTT callbacks and the web interface.
 	state *gatewayState
@@ -314,6 +316,12 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 
 	m.state = newGatewayState()
 	m.lastError = nil
+	m.wifiIface = cfgString("wifi_interface")
+	m.wifi = &wifiManager{iface: m.wifiIface}
+	carReconnect := m.wifiIface != "" && nmcliAvailable()
+	if m.wifiIface != "" && !carReconnect {
+		log.Infof("nmcli not found: the car's WiFi is left to the system, also when it stops reconnecting")
+	}
 
 	if listen := cfgString("web_listen"); listen != "" {
 		web, err := newWebServer(m, listen, cfgString("web_password"), cfgBool("web_auth"))
@@ -324,11 +332,11 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		go web.serve()
 	}
 
-	m.wifiIface = cfgString("wifi_interface")
 	m.connectMQTT()
 	if m.wifiIface != "" {
 		go m.watchWifi(m.wifiIface)
 	}
+	var lastCarReconnect time.Time
 
 	for {
 		if m.state.isEnabled() {
@@ -344,6 +352,14 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 				if err := restartWifi(cmd); err != nil {
 					log.Errorf("Error restarting wifi: %v", err)
 				}
+			}
+			// Bring the car's WiFi back when NetworkManager gave up on it.
+			if carReconnect && m.state.wifiDownFor() >= carReconnectInterval &&
+				time.Since(lastCarReconnect) >= carReconnectInterval {
+				lastCarReconnect = time.Now()
+				// In the background: bringing a connection up takes up to
+				// nmcliTimeout, which must not hold up the car loop.
+				go m.wifi.reconnectCar()
 			}
 		}
 

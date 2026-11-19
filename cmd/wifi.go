@@ -24,6 +24,9 @@ type wifiManager struct {
 	iface string
 	// One nmcli change at a time; scans and status may run alongside.
 	mu sync.Mutex
+	// The last thing reconnectCar logged, so a lasting problem is logged
+	// once and not at every attempt. Guarded by mu.
+	reconnectLog string
 }
 
 type wifiStatus struct {
@@ -225,4 +228,92 @@ func connectError(ssid string, err error) error {
 	// Otherwise the first line, without nmcli's "Error: " and its hints.
 	line, _, _ := strings.Cut(msg, "\n")
 	return errors.New(strings.TrimPrefix(line, "Error: "))
+}
+
+// carReconnectInterval is how long the car's WiFi must be down before
+// reconnectCar steps in, and how often it tries after that.
+const carReconnectInterval = 2 * time.Minute
+
+// reconnectCar brings the car profile up when the car is in range but
+// NetworkManager is not connecting to it. NetworkManager gives up on a
+// profile for good once an activation fails for lack of secrets, and that is
+// what the car driving off during the WPA handshake looks like: it then needs
+// a manual `nmcli connection up` even with the car back in range. Only
+// NetworkManager's own scan results are used, so this scans nothing itself.
+func (w *wifiManager) reconnectCar() {
+	if !w.mu.TryLock() {
+		return // the web interface is changing the WiFi
+	}
+	defer w.mu.Unlock()
+	tried, err := w.tryReconnectCar()
+	msg := ""
+	if err != nil {
+		msg = err.Error()
+	}
+	repeat := msg == w.reconnectLog
+	w.reconnectLog = msg
+	switch {
+	case err == nil:
+	case tried && !repeat:
+		log.Warnf("Reconnecting the car's WiFi: %v", err)
+	default:
+		log.Debugf("Car WiFi reconnect: %v", err)
+	}
+}
+
+// tryReconnectCar is reconnectCar with mu held. It reports whether it ran
+// `nmcli connection up`.
+func (w *wifiManager) tryReconnectCar() (bool, error) {
+	out, err := nmcli("-t", "-f", "GENERAL.STATE", "device", "show", w.iface)
+	if err != nil {
+		return false, err
+	}
+	if !deviceIdle(terseValues(out)["GENERAL.STATE"]) {
+		return false, nil
+	}
+	out, err = nmcli("-t", "-f", "802-11-wireless.ssid", "connection", "show", carConnectionName)
+	if err != nil {
+		return false, nil // no car profile, the WiFi is set up some other way
+	}
+	ssid := terseValues(out)["802-11-wireless.ssid"]
+	out, err = nmcli("-t", "-f", "SSID", "device", "wifi", "list", "ifname", w.iface, "--rescan", "no")
+	if err != nil {
+		return false, err
+	}
+	if !ssidListed(out, ssid) {
+		return false, nil
+	}
+	log.Infof("WiFi %q in range but %s is not connecting; bringing up %s", ssid, w.iface, carConnectionName)
+	if _, err := nmcli("connection", "up", carConnectionName); err != nil {
+		return true, connectError(ssid, err)
+	}
+	return true, nil
+}
+
+// nmcliAvailable reports whether nmcli is installed: without it (another
+// network manager, a minimal system) phev2mqtt leaves the WiFi alone.
+func nmcliAvailable() bool {
+	_, err := exec.LookPath("nmcli")
+	return err == nil
+}
+
+// deviceIdle reports whether a GENERAL.STATE from nmcli, e.g.
+// "30 (disconnected)", is a device that could connect but is not trying to:
+// not while it connects, nor when it is unavailable or unmanaged.
+func deviceIdle(state string) bool {
+	code, _, _ := strings.Cut(state, " ")
+	return code == "30"
+}
+
+// ssidListed reports whether ssid is in `nmcli -t -f SSID device wifi list`.
+func ssidListed(out, ssid string) bool {
+	if ssid == "" {
+		return false
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if f := splitTerse(strings.TrimRight(line, "\r")); len(f) == 1 && f[0] == ssid {
+			return true
+		}
+	}
+	return false
 }
