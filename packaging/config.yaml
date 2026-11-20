@@ -23,6 +23,9 @@ mqtt_password: ""
 
 # Restart the WiFi interface when the car has been unreachable this long
 # (0s = never). The service may run `ip link` for this; it cannot use sudo.
+# With NetworkManager this is rarely needed: phev2mqtt itself brings the car's
+# network (profile phev2mqtt-car) up again when the car is in range but
+# NetworkManager stopped trying.
 wifi_restart_time: 0s
 wifi_restart_retry_time: 2m
 wifi_restart_command: "ip link set wlan0 down && sleep 3 && ip link set wlan0 up"
@@ -40,5 +43,6 @@ wifi_restart_command: "ip link set wlan0 down && sleep 3 && ip link set wlan0 up
 # Or no login at all. Anyone who can reach web_listen then controls the car.
 # web_auth: false
 # WiFi interface for the car. Its state and signal go to MQTT (phev/wifi/...);
-# the web interface manages it, which needs NetworkManager.
+# the web interface manages it and phev2mqtt reconnects it, both of which
+# need NetworkManager.
 # wifi_interface: wlan0
