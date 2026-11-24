@@ -1287,7 +1287,7 @@ func init() {
 	// web_password and web_settings_file only come from the config file, so
 	// the password never shows up in the process list.
 	mqttCmd.Flags().String("web_listen", "", "Serve the web interface on this address, e.g. 127.0.0.1:8080 (off if empty)")
-	mqttCmd.Flags().Bool("extra_sensors", false, "Publish extra status sensors: power switch, alarm, charge type, the car's timers, battery heater, ...")
+	mqttCmd.Flags().Bool("extra_sensors", false, "Publish extra status sensors: ignition, charge type, the car's timers, battery heater, ...")
 
 	viper.BindPFlag("mqtt_server", mqttCmd.Flags().Lookup("mqtt_server"))
 	viper.BindPFlag("mqtt_username", mqttCmd.Flags().Lookup("mqtt_username"))

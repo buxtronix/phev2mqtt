@@ -21,7 +21,7 @@ mqtt_password: ""
 # How often to ask the car for a full status update.
 # update_interval: 5m
 
-# Extra sensors: power switch, charge type, the car's own
+# Extra sensors: ignition, charge type, the car's own
 # charge and climate timers, battery heater, EV-ECU error, car clock. Best
 # known for 2014-2017 cars. Switching it off again removes them from Home
 # Assistant.

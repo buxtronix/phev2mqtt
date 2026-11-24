@@ -22,7 +22,7 @@ type extraSensor struct {
 }
 
 var extraSensors = []extraSensor{
-	{"sensor", "power_switch", "Power Switch", "/power/switch",
+	{"sensor", "power_switch", "Ignition", "/power/switch",
 		`"device_class": "enum", "options": ["off", "acc", "on", "unknown"], "icon": "mdi:car-key"`},
 	{"sensor", "charge_type", "Charge Type", "/charge/type",
 		`"device_class": "enum", "options": ["none", "normal", "trickle", "quick", "unknown"], "icon": "mdi:ev-station"`},
