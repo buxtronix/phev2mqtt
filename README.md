@@ -78,7 +78,7 @@ sudo systemctl start phev2mqtt
 The car talks to one client at a time, so keep the Mitsubishi app disconnected. If the
 WiFi refuses the password, check letters that look alike, like `l`, `I` and `1`.
 
-For more sensors (power switch, security alarm, charge type, the car's own timers
+For more sensors (power switch, charge type, the car's own timers
 and more), set `extra_sensors: true`; they are best known for 2014-2017 cars.
 
 All settings, with comments, are in `/etc/phev2mqtt/config.yaml`; the log is in
@@ -116,7 +116,6 @@ Published, under the prefix `phev` (`mqtt_topic_prefix`):
 | phev/lights/head, parking, hazard, interior | *on* or *off* |
 | phev/vin, phev/registrations | The VIN, and the number of clients registered with the car |
 | phev/power/switch | With `extra_sensors`: the power switch, *off*, *acc* or *on* |
-| phev/alarm/state, last_event | With `extra_sensors`: the security alarm *disarmed*, *armed* or *triggered*, and when it last went off |
 | phev/charge/type | With `extra_sensors`: *none*, *normal*, *trickle* or *quick* |
 | phev/charge/timer, timer_waiting, timer_failed, timer_schedule | With `extra_sensors`: the car's own charge timer *on*/*off*, waiting for it, a scheduled charge that failed, and its windows per day (JSON) |
 | phev/climate/timer, timer_schedule | With `extra_sensors`: the car's own climate timer *on*/*off*, and its start time per day (JSON) |

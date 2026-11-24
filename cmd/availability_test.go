@@ -149,6 +149,9 @@ func TestDiscoveryCarEntitiesNeedGateway(t *testing.T) {
 	m.publishHomeAssistantDiscovery("VIN1", "phev")
 	cars := 0
 	for topic, payload := range b.published {
+		if payload == "" {
+			continue // removes an entity
+		}
 		var c availabilityConfig
 		if err := json.Unmarshal([]byte(payload), &c); err != nil {
 			t.Fatalf("%s: %v", topic, err)

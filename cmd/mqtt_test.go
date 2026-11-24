@@ -190,6 +190,9 @@ func TestDiscoveryStateTopicsArePublished(t *testing.T) {
 		t.Fatal("no discovery published")
 	}
 	for topic, payload := range b.published {
+		if payload == "" {
+			continue // removes an entity
+		}
 		var config struct {
 			StateTopic string `json:"state_topic"`
 		}

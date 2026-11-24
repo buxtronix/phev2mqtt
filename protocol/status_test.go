@@ -60,14 +60,6 @@ func TestStatusTrackerSingleRegisters(t *testing.T) {
 		// phev-remote-plus LogicTest: 0x1a=0400 is ignition ON.
 		{"power on", false, 0x1a, "0400", map[string]string{"/power/switch": "on"}},
 		{"power unknown", false, 0x1a, "07", map[string]string{"/power/switch": "unknown"}},
-		{"alarm disarmed", false, 0x23, "0000000202", map[string]string{"/alarm/state": "disarmed"}},
-		{"alarm armed", false, 0x23, "0006000202", map[string]string{"/alarm/state": "armed"}},
-		// Field capture (2014 car): 01 right after locking, then 02.
-		{"alarm arming", false, 0x23, "0001000202", map[string]string{"/alarm/state": "armed"}},
-		{"alarm armed after delay", false, 0x23, "0002000202", map[string]string{"/alarm/state": "armed"}},
-		{"alarm triggered", false, 0x23, "0005000202", map[string]string{"/alarm/state": "triggered"}},
-		{"alarm event", false, 0x14, "1a0a0e12341e01", map[string]string{"/alarm/last_event": localRFC3339(2026, 10, 14, 18, 52, 30)}},
-		{"alarm event unset", false, 0x14, "ffffffffffff00", map[string]string{}},
 		{"battery too cold", false, 0x1d, "5a030000", map[string]string{"/battery/too_cold": "on"}},
 		{"battery fine", false, 0x1d, "5a000100", map[string]string{"/battery/too_cold": "off"}},
 		{"battery heater MY14", true, 0x02, "00010000", map[string]string{"/battery/heater": "on"}},
@@ -83,6 +75,8 @@ func TestStatusTrackerSingleRegisters(t *testing.T) {
 		{"climate timer field log", false, 0x19, "01ffffffff07ffff1f", map[string]string{"/climate/timer": "off", "/climate/timer_schedule": "{}"}},
 		// Field log (2014 car): every charge timer slot unset.
 		{"charge schedule field log", false, 0x18, "ffffffff07ffff1fffffffff07ffff1f", map[string]string{"/charge/timer_schedule": "{}"}},
+		// Not every car has an alarm, so 0x23[1] is not published.
+		{"alarm not published", false, 0x23, "0002000202", map[string]string{}},
 		{"unrelated register", false, 0x28, "41424300", map[string]string{}},
 	}
 	for _, test := range tests {

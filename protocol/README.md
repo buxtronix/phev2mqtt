@@ -433,8 +433,9 @@ Single byte.
 Interior lights ON: `0000000201` (bit 0 of byte 4; `03` is on too)
 Interior lights OFF: `0000000202`
 
-Byte 1 is the security alarm: 0 disarmed; 1 just after locking, then 2, both
-armed (6 and 7 armed too); 4 and 5 triggered.
+Byte 1 is the security alarm, according to PHEV Link: 0 disarmed; 1 just after
+locking, then 2, both armed (6 and 7 armed too); 4 and 5 triggered. The alarm is
+optional: on a car without one it stays 0, locked or not.
 Hazard lights ON: `0000000102`
 Hazard lights OFF: `0000000202`
 

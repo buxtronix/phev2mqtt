@@ -363,6 +363,9 @@ func TestDiscoveryDeviceName(t *testing.T) {
 		m.extraSensors = true
 		m.publishHomeAssistantDiscovery("VIN1", "phev")
 		for topic, payload := range b.published {
+			if payload == "" {
+				continue // removes an entity
+			}
 			var config struct {
 				Name   string `json:"name"`
 				Device struct {

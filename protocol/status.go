@@ -21,7 +21,6 @@ const (
 	QuickChargePhaseRegister = 0x0c // ==5 while quick charging (CHAdeMO)
 	QuickChargeStateRegister = 0x0d // ==3 while quick charging (CHAdeMO)
 	FullChargeDaysRegister   = 0x0e // bit d set = "full charge" on day d (Sunday 0)
-	TheftEventRegister       = 0x14 // [yy mm dd hh mi ss][type] of the last alarm
 	ChargeTimerProgRegister  = 0x18 // per-day charge windows, see chargeSchedule
 	ClimateTimerProgRegister = 0x19 // [state][per-day start hours][per-day start minutes]
 	ChargeTimerStateRegister = 0x1b // low nibble >= 2: the car's charge timer is on
@@ -59,14 +58,6 @@ func (t *StatusTracker) Update(register byte, data []byte) map[string]string {
 	case ACOperStatusRegister:
 		if len(data) >= 1 {
 			out["/power/switch"] = powerSwitch(data[0])
-		}
-	case LightStatusRegister:
-		if len(data) >= 2 {
-			out["/alarm/state"] = alarmState(data[1])
-		}
-	case TheftEventRegister:
-		if ts, ok := carTimestamp(data); ok {
-			out["/alarm/last_event"] = ts
 		}
 	case BatteryLevelRegister:
 		if len(data) >= 2 {
@@ -138,21 +129,6 @@ func powerSwitch(b byte) string {
 		return "acc"
 	case 4:
 		return "on"
-	}
-	return "unknown"
-}
-
-// alarmState decodes register 0x23[1]. A 2014 car reports 1 right after
-// locking and 2 a few seconds later, once armed; phev-remote-plus saw 6 and
-// 7 armed too.
-func alarmState(b byte) string {
-	switch b {
-	case 0:
-		return "disarmed"
-	case 1, 2, 6, 7:
-		return "armed"
-	case 4, 5:
-		return "triggered"
 	}
 	return "unknown"
 }

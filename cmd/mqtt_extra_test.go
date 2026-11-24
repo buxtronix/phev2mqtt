@@ -10,11 +10,14 @@ import (
 func TestExtraSensorDiscovery(t *testing.T) {
 	data := map[string]string{}
 	addExtraSensorDiscovery(data, true)
-	if len(data) != len(extraSensors) {
-		t.Fatalf("%d discovery topics for %d sensors", len(data), len(extraSensors))
+	if want := len(extraSensors) + len(retiredExtraSensors); len(data) != want {
+		t.Fatalf("%d discovery topics, want %d", len(data), want)
 	}
 	ids := map[string]bool{}
 	for topic, config := range data {
+		if config == "" {
+			continue // a retired sensor, removed
+		}
 		topic = fmt.Sprintf(topic, "homeassistant", "VIN1")
 		for in, out := range map[string]string{"__DEVICE__": "PHEV VIN1", "__VIN__": "VIN1", "__TOPIC__": "phev"} {
 			config = strings.ReplaceAll(config, in, out)

@@ -24,10 +24,6 @@ type extraSensor struct {
 var extraSensors = []extraSensor{
 	{"sensor", "power_switch", "Power Switch", "/power/switch",
 		`"device_class": "enum", "options": ["off", "acc", "on", "unknown"], "icon": "mdi:car-key"`},
-	{"sensor", "alarm_state", "Security Alarm", "/alarm/state",
-		`"device_class": "enum", "options": ["disarmed", "armed", "triggered", "unknown"], "icon": "mdi:shield-car"`},
-	{"sensor", "alarm_last_event", "Last Alarm Event", "/alarm/last_event",
-		`"device_class": "timestamp", "icon": "mdi:alarm-light"`},
 	{"sensor", "charge_type", "Charge Type", "/charge/type",
 		`"device_class": "enum", "options": ["none", "normal", "trickle", "quick", "unknown"], "icon": "mdi:ev-station"`},
 	{"binary_sensor", "charge_timer_waiting", "Waiting For Car Charge Timer", "/charge/timer_waiting",
@@ -82,6 +78,14 @@ func (e extraSensor) discovery() (string, string) {
 	return topic, b.String()
 }
 
+// retiredExtraSensors were published by a test build and are removed from
+// Home Assistant with empty discovery configs. The security alarm sensors
+// went because the alarm is optional: without one, 0x23[1] always reads 0.
+var retiredExtraSensors = []extraSensor{
+	{component: "sensor", key: "alarm_state"},
+	{component: "sensor", key: "alarm_last_event"},
+}
+
 // addExtraSensorDiscovery adds the extra sensors to a discovery template
 // map: their configs when enabled, or empty ones that remove them.
 func addExtraSensorDiscovery(data map[string]string, enabled bool) {
@@ -91,6 +95,10 @@ func addExtraSensorDiscovery(data map[string]string, enabled bool) {
 			config = ""
 		}
 		data[topic] = config
+	}
+	for _, e := range retiredExtraSensors {
+		topic, _ := e.discovery()
+		data[topic] = ""
 	}
 }
 
