@@ -248,22 +248,22 @@ There seem to be two types of register layout (A/B).
 |0x9       | ??                           | 1      | 49        | [1]                           |                                     |
 |0xa       | ??                           | 1      | 50        | [1]                           |                                     |
 |0xb       | ??                           | 1      | 238 / 236 | [1]                           |                                     |
-|0xc       | ??                           | 1      | 51        | [1]                           |                                     |
-|0xd       | ??                           | 1      | 52        | [1]                           |                                     |
-|0xe       | ??                           | 1      | 53        | [1]                           |                                     |
+|0xc       | Quick charge phase           | 1      | 51        | [1]                           | 5 while quick charging (CHAdeMO)    |
+|0xd       | Quick charge state           | 1      | 52        | [1]                           | 3 while quick charging (CHAdeMO)    |
+|0xe       | Full charge days             | 1      | 53        | [1]                           | Bit d: full charge on day d (Sun 0) |
 |0xf       | ??                           | 1      | 54        | [1]                           |                                     |
 |0x10      | AirCon State                 | 3 / 1  | 55        | [1,1,1] / [1]                 |                                     |
 |0x11      | ??                           | 1      | 58        | [1]                           |                                     |
 |0x12      | TimeSync                     | 7      | 59        | [7]                           |                                     |
 |0x13      | ??                           | 1      | 66        | [1]                           |                                     |
-|0x14      | ??                           | 7      | 67        | [6,1]                         |                                     |
+|0x14      | Last alarm event             | 7      | 67        | [6,1]                         | [yy mm dd hh mi ss][type]           |
 |0x15      | VIN                          | 20     | 246 / 74  | [19,11] / [1,17,1,1]          |                                     |
 |0x16      | ??                           | 8      | 95        | [8]                           | Seems to convey some other settings |
 |0x17      | ??                           | 1      | 103       | [1]                           |                                     |
-|0x18      | ??                           | 4 / 16 | 276 / 104 | [1,1,2] / [5,3,5,3]           |                                     |
-|0x19      | ??                           | 9      | 120       | [1,5,3]                       |                                     |
+|0x18      | Charge timer programme       | 4 / 16 | 276 / 104 | [1,1,2] / [5,3,5,3]           | See below                           |
+|0x19      | Climate timer programme      | 9      | 120       | [1,5,3]                       | See below                           |
 |0x1a      | Ignition status              | 5 / 2  | 129       | [1,1,1,1,1] / [1,1]           |                                     |
-|0x1b      | ??                           | 1      | 134       | [1]                           |                                     |
+|0x1b      | Charge timer state           | 1      | 134       | [1]                           | Low nibble >= 2: timer on           |
 |0x1c      | AirCon Mode                  | 1      | 136       | [1]                           |                                     |
 |0x1d      | Battery Level / light status | 4      | 137       | [1,1,1,1]                     |                                     |
 |0x1e      | Charge plug status           | 2      | 141       | [1,1]                         |                                     |
@@ -274,16 +274,19 @@ There seem to be two types of register layout (A/B).
 |0x23      | Interior/Hazard Lights + AC? | 5      | 163       | [1,1,1,1,1]                   |                                     |
 |0x24      | Door Lock Status             | 10     | 168       | [1,1,1,1,1,1,1,1,1,1]         |                                     |
 |0x25      | ??                           | 3      | 178       | [1,1,1]                       |                                     |
-|0x26      | ??                           | 1      | 181       | [1]                           |                                     |
+|0x26      | Car screen in use            | 1      | 181       | [1]                           | 1 while in use                      |
 |0x27      | ??                           | 1      | 182       | [1]                           |                                     |
 |0x28      | ??                           | 32     | 183       | [33]                          |                                     |
 |0x29      | ??                           | 3 / 2  | 216       | [1,1,1] / [1,1]               |                                     |
 |0x2a      | ??                           | 1      | 219       | [1]                           |                                     |
 |0x2b      | ??                           | 10     | 220       | [10]                          |                                     |
-|0x2c      | ??                           | 1      | 233       | [1]                           |                                     |
+|0x2c      | EV-ECU error                 | 1      | 233       | [1]                           | 1 on a communication error          |
 |0xc0      | ECU Version                  | 13     | 220       | [10,2,1]                      |                                     |
 
 ### 0x02 - Battery warning
+
+On 2014-2017 cars, byte 1 is 1 while the battery heater runs. 2018+ cars use
+another layout.
 
 ### 0x0b - Parking light status
 
@@ -348,6 +351,22 @@ __must be converted from big endian to little endian__ to be useful
 
 ### 0x12 - Car time sync
 
+`[yy mm dd hh mi ss][?]`, the car's clock in local time. Register 0x14 (last
+alarm event) uses the same time format.
+
+### 0x18 - Charge timer programme / 0x19 - Climate timer programme
+
+Seven little-endian bit fields per value, one per day, Sunday first; an unset
+day holds all ones. Minutes are in 10-minute steps.
+
+| Register | Bytes | Fields |
+|--|--|--|
+| 0x18 | 0-4, 5-7, 8-12, 13-15 | start hour (5 bits), start minutes/10 (3 bits), end hour (5 bits), end minutes/10 (3 bits) |
+| 0x19 | 0, 1-5, 6-8 | timer state (2 = on), start hour (5 bits), start minutes/10 (3 bits) |
+
+Days with the full-charge option have their bit set in register 0x0e. Layouts
+from PHEV Link (see the README credits).
+
 ### 0x15 - Vin / registration state
 
 Vin info and regstration status.
@@ -355,7 +374,8 @@ Vin info and regstration status.
 | Byte(s) | Description |
 |--|--|
 |0 | Unknown |
-|1-18 | VIN (ascii) |
+|1-17 | VIN (ascii) |
+|18 | 1 while the car is in registration mode |
 |19 | Number of registered clients |
 
 ### 0x17 - Charge timer state
@@ -389,14 +409,17 @@ Single byte.
 | Byte(s) | Description |
 |--|--|
 |0 | Drive battery level % |
-|1 | Unknown |
+|1 | 3 when the car asks for the cable because the battery is too cold |
 |2 | Parking light status 0/1 |
 |3 | Unknown |
 
 ### 0x1e - Charge plug status
 
 0000 - Unplugged
-0001 - Plugged in, not charging
+0001 - Plugged in, waiting for the charge timer
+0002 - Plugged in, inside the charge window
+0003 - Plugged in, scheduled charge failed
+0202 - Charging (byte 0: 2 normal, 1 trickle charge)
 
 ### 0x1f - Charging status
 
@@ -407,8 +430,11 @@ Single byte.
 
 ### 0x23 - Interior/Hazard lights + Something AC?
 
-Interior lights ON: `0000000201`
+Interior lights ON: `0000000201` (bit 0 of byte 4; `03` is on too)
 Interior lights OFF: `0000000202`
+
+Byte 1 is the security alarm: 0 disarmed; 1 just after locking, then 2, both
+armed (6 and 7 armed too); 4 and 5 triggered.
 Hazard lights ON: `0000000102`
 Hazard lights OFF: `0000000202`
 

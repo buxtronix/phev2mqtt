@@ -145,6 +145,7 @@ type availabilityConfig struct {
 // the will, so it stays online when the gateway dies.
 func TestDiscoveryCarEntitiesNeedGateway(t *testing.T) {
 	m, b := newTestClient("phev")
+	m.extraSensors = true
 	m.publishHomeAssistantDiscovery("VIN1", "phev")
 	cars := 0
 	for topic, payload := range b.published {

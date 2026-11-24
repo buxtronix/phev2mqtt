@@ -233,6 +233,9 @@ function tiles(st) {
     ["Open", list(doors, "/door/", "open")],
     ["Lights on", list(lights, "/lights/", "on")],
     ["Climate", v("/climate/state")],
+    // extra_sensors: only shown when the gateway publishes them.
+    ...[["Power", v("/power/switch")], ["Alarm", v("/alarm/state")], ["Charge type", v("/charge/type")]]
+      .filter(([, x]) => x !== undefined),
     ["Model", st.model_year],
     ["VIN", st.vin],
     ["Last update", st.updated ? ago(st.updated) : undefined],

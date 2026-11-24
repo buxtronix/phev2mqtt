@@ -360,6 +360,7 @@ func TestDiscoveryDeviceName(t *testing.T) {
 	} {
 		m, b := newTestClient("phev")
 		m.haDeviceName = tc.name
+		m.extraSensors = true
 		m.publishHomeAssistantDiscovery("VIN1", "phev")
 		for topic, payload := range b.published {
 			var config struct {
