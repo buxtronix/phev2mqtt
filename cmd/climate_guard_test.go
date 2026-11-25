@@ -184,3 +184,17 @@ func TestClimateGuardFromMQTT(t *testing.T) {
 		t.Errorf("result %q", got)
 	}
 }
+
+func TestClimateGuardIgnoresOldRunningState(t *testing.T) {
+	shortWaits(t)
+	regs := map[byte]string{}
+	for k, v := range my14Regs {
+		regs[k] = v
+	}
+	regs[0x10] = "020000" // still running from an earlier start
+	m, b := guardClient(t, regs)
+	m.setClimateGuarded(&fakeCar{}, client.ModelYear14, 0x2, 0x0)
+	if got := b.get("phev/command/result"); !strings.Contains(got, "did not start the climate") {
+		t.Errorf("result %q, want unconfirmed: 0x10 was from before the start", got)
+	}
+}

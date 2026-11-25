@@ -46,16 +46,19 @@ var climateGuardEntities = []extraSensor{
 		`"icon": "mdi:history", "entity_category": "diagnostic"`},
 }
 
-// regCache holds the latest value of each register in the current session.
+// regCache holds the latest value of each register in the current session,
+// and when the car sent it.
 type regCache struct {
 	mu   sync.Mutex
 	data map[byte][]byte
+	at   map[byte]time.Time
 }
 
 func (r *regCache) reset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.data = map[byte][]byte{}
+	r.at = map[byte]time.Time{}
 }
 
 func (r *regCache) put(register byte, data []byte) {
@@ -63,8 +66,10 @@ func (r *regCache) put(register byte, data []byte) {
 	defer r.mu.Unlock()
 	if r.data == nil {
 		r.data = map[byte][]byte{}
+		r.at = map[byte]time.Time{}
 	}
 	r.data[register] = append([]byte(nil), data...)
+	r.at[register] = time.Now()
 }
 
 func (r *regCache) get(register byte) ([]byte, bool) {
@@ -72,6 +77,14 @@ func (r *regCache) get(register byte) ([]byte, bool) {
 	defer r.mu.Unlock()
 	d, ok := r.data[register]
 	return d, ok
+}
+
+// since returns a register's value if the car sent it after t.
+func (r *regCache) since(register byte, t time.Time) ([]byte, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	d, ok := r.data[register]
+	return d, ok && r.at[register].After(t)
 }
 
 // carWriter writes a register on the car: client.Client's SetRegister, or a
@@ -138,13 +151,14 @@ func (m *mqttClient) my14ClimatePayload(car carWriter, modeByte byte) []byte {
 	return d
 }
 
-// climateRunning waits for the car to report the climate running.
-func (m *mqttClient) climateRunning() bool {
+// climateRunning waits for the car to report the climate running, in a
+// register it sent after sent.
+func (m *mqttClient) climateRunning(sent time.Time) bool {
 	for deadline := time.Now().Add(climateConfirmWait); ; time.Sleep(200 * time.Millisecond) {
-		if d, ok := m.regs.get(protocol.PreACStateRegister); ok && len(d) >= 1 && d[0] == 2 {
+		if d, ok := m.regs.since(protocol.PreACStateRegister, sent); ok && len(d) >= 1 && d[0] == 2 {
 			return true
 		}
-		if d, ok := m.regs.get(protocol.ACOperStatusRegister); ok && len(d) >= 2 && d[1] == 1 {
+		if d, ok := m.regs.since(protocol.ACOperStatusRegister, sent); ok && len(d) >= 2 && d[1] == 1 {
 			return true
 		}
 		if time.Now().After(deadline) {
@@ -169,6 +183,9 @@ func (m *mqttClient) setClimateGuarded(car carWriter, my client.ModelYear, mode,
 			return
 		}
 	}
+	// The start is confirmed from what the car reports after it, not from
+	// values left over from an earlier start.
+	sent := time.Now()
 	var err error
 	switch my {
 	case client.ModelYear14:
@@ -196,7 +213,7 @@ func (m *mqttClient) setClimateGuarded(car carWriter, my client.ModelYear, mode,
 		m.reportCommand(what + ": done")
 		return
 	}
-	if !m.climateRunning() {
+	if !m.climateRunning(sent) {
 		m.reportCommand(what + ": the car accepted it but did not start the climate (a door open, or the battery low?)")
 		return
 	}

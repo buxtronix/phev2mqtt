@@ -49,6 +49,12 @@ section { background: var(--card); border: 1px solid var(--line); border-radius:
 .tile { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .tile .k { font-size: .8rem; color: var(--muted); }
 .tile .v { font-size: 1.15rem; font-weight: 600; overflow-wrap: anywhere; }
+#tiles h3:first-child { margin-top: 0; }
+.status-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 12px; }
+.status-head h2 { margin: 0; }
+.result { margin-top: 8px; font-size: .9rem; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.result .when { color: var(--muted); }
+.result.ok .what { color: var(--ok); } .result.warn .what { color: var(--warn); } .result.bad .what { color: var(--bad); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 button {
   font: inherit; border: 1px solid var(--line); background: var(--pill); color: var(--text);
@@ -95,8 +101,8 @@ input, select {
   </header>
 
   <section>
-    <h2>Status</h2>
-    <div class="tiles" id="tiles"></div>
+    <div class="status-head"><h2>Status</h2><span class="muted" id="car-info"></span></div>
+    <div id="tiles"></div>
   </section>
 
   <section>
@@ -112,6 +118,7 @@ input, select {
       <button data-car data-cmd="climate_off" data-value="off">Off</button>
       <button data-car data-cmd="climate_reset" data-value="reset" title="Clears the 'terminated' climate state">Clear terminated</button>
     </div>
+    <div class="result" id="climate-result" hidden><span class="when"></span><span class="what"></span></div>
     <h3>Lights and charging</h3>
     <div class="row">
       <button data-car data-cmd="headlights" data-value="on">Headlights on</button>
@@ -215,7 +222,9 @@ const doors = { driver: "driver", front_passenger: "passenger", rear_left: "rear
   rear_right: "rear right", bonnet: "bonnet", boot: "boot" };
 const lights = { head: "head", parking: "parking", interior: "interior", hazard: "hazard" };
 
-function tiles(st) {
+// The status tiles, in groups. Values that only some setups publish
+// (extra_sensors) are left out when missing; the others show "–".
+function tileGroups(st) {
   const v = (k) => st.values[k];
   const list = (map, prefix, on, none = "none") => {
     const known = Object.keys(map).filter((k) => v(prefix + k) !== undefined);
@@ -223,28 +232,52 @@ function tiles(st) {
     const hit = known.filter((k) => v(prefix + k) === on).map((k) => map[k]);
     return hit.length ? hit.join(", ") : none;
   };
+  const optional = (k, value) => value === undefined ? [] : [[k, value]];
   const locked = v("/door/locked");
+  const charging = v("/charge/charging");
+  const type = v("/charge/type");
   return [
-    ["Battery", v("/battery/level") !== undefined ? v("/battery/level") + " %" : undefined],
-    ["Charging", v("/charge/charging") === "on" ? "yes" : v("/charge/charging") === "off" ? "no" : undefined],
-    ["Charge remaining", v("/charge/remaining") !== undefined ? v("/charge/remaining") + " min" : undefined],
-    ["Plug", v("/charge/plug")],
-    ["Locked", locked === "closed" ? "locked" : locked === "open" ? "unlocked" : undefined],
-    ["Doors open", list(doors, "/door/", "open", "all closed")],
-    ["Lights on", list(lights, "/lights/", "on")],
-    ["Climate", v("/climate/state")],
-    // extra_sensors: only shown when published.
-    ...[["Ignition", v("/power/switch")], ["Charge type", v("/charge/type")]]
-      .filter(([, x]) => x !== undefined),
-    // climate_guard: always, "–" before the first command.
-    ...(st.climate_guard ? [["Last command", v("/command/result")]] : []),
-    ["Model", st.model_year],
-    ["VIN", st.vin],
-    ["Last update", st.updated ? ago(st.updated) : undefined],
-    ["Last connected", st.car_connected ? "now" : ago(st.last_connect)],
-    ["WiFi", v("/wifi/state") === "connected" && v("/wifi/signal") !== undefined
-      ? "connected, " + v("/wifi/signal") + " dBm" : v("/wifi/state")],
+    ["Battery and charging", [
+      ["Battery", v("/battery/level") !== undefined ? v("/battery/level") + " %" : undefined],
+      ["Charging", charging === "on" ? (type && type !== "none" && type !== "unknown" ? "yes, " + type : "yes")
+        : charging === "off" ? "no" : undefined],
+      ["Charge remaining", v("/charge/remaining") !== undefined ? v("/charge/remaining") + " min" : undefined],
+      ["Plug", v("/charge/plug")],
+    ]],
+    ["Car", [
+      ...optional("Ignition", v("/power/switch")),
+      ["Climate", v("/climate/state")],
+      ["Locked", locked === "closed" ? "locked" : locked === "open" ? "unlocked" : undefined],
+      ["Doors open", list(doors, "/door/", "open", "all closed")],
+      ["Lights on", list(lights, "/lights/", "on")],
+    ]],
+    ["Connection", [
+      ["Last update", st.updated ? ago(st.updated) : undefined],
+      ["Last connected", st.car_connected ? "now" : ago(st.last_connect)],
+      ["WiFi", v("/wifi/state") === "connected" && v("/wifi/signal") !== undefined
+        ? v("/wifi/signal") + " dBm" : v("/wifi/state")],
+    ]],
   ];
+}
+
+// renderClimateResult shows climate_guard's last result under the climate
+// buttons: "2026-11-25 18:36 Heat 20 min: done, ..." as time and text.
+function renderClimateResult(st) {
+  const box = $("climate-result");
+  box.hidden = !st.climate_guard;
+  if (!st.climate_guard) return;
+  const r = st.values["/command/result"];
+  const m = r && r.match(/^(\d{4}-\d\d-\d\d) (\d\d:\d\d) (.*)$/);
+  let when = "", what = r || "No climate command yet";
+  if (m) {
+    what = m[3];
+    const d = new Date();
+    const today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    when = m[1] === today ? m[2] : m[1] + " " + m[2];
+  }
+  box.className = "result " + (!r ? "" : /refused|did not start/.test(what) ? "warn" : /failed/.test(what) ? "bad" : "ok");
+  box.querySelector(".when").textContent = when ? "Last command, " + when + ":" : "Last command:";
+  box.querySelector(".what").textContent = what;
 }
 
 function render(st) {
@@ -260,15 +293,21 @@ function render(st) {
   mq.textContent = "MQTT: " + (!st.mqtt_server ? "not set up" : st.mqtt_connected ? "connected" : "not connected");
   mq.className = "pill " + (st.mqtt_connected ? "ok" : st.mqtt_server ? "bad" : "warn");
 
-  const box = $("tiles");
-  box.replaceChildren(...tiles(st).map(([k, v]) => {
-    const t = document.createElement("div");
-    t.className = "tile";
-    const a = document.createElement("div"); a.className = "k"; a.textContent = k;
-    const b = document.createElement("div"); b.className = "v"; b.textContent = v === undefined ? "–" : v;
-    t.append(a, b);
-    return t;
+  $("car-info").textContent = [st.model_year, st.vin].filter(Boolean).join(" · ");
+  $("tiles").replaceChildren(...tileGroups(st).flatMap(([title, items]) => {
+    const h = document.createElement("h3"); h.textContent = title;
+    const g = document.createElement("div"); g.className = "tiles";
+    g.append(...items.map(([k, v]) => {
+      const t = document.createElement("div");
+      t.className = "tile";
+      const a = document.createElement("div"); a.className = "k"; a.textContent = k;
+      const b = document.createElement("div"); b.className = "v"; b.textContent = v === undefined ? "–" : v;
+      t.append(a, b);
+      return t;
+    }));
+    return [h, g];
   }));
+  renderClimateResult(st);
 
   for (const b of document.querySelectorAll("button[data-car]")) b.disabled = !st.car_connected;
   const tc = $("toggle-connection");
