@@ -157,6 +157,11 @@ type mqttClient struct {
 	// is only used by the car loop.
 	extraSensors bool
 	status       protocol.StatusTracker
+	// climate_guard: the registers of the current session, and one guarded
+	// climate command at a time.
+	climateGuard bool
+	regs         regCache
+	commandMu    sync.Mutex
 
 	// Shared with the MQTT callbacks and the web interface.
 	state *gatewayState
@@ -322,6 +327,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.lastError = nil
 	m.wifiIface = cfgString("wifi_interface")
 	m.extraSensors = cfgBool("extra_sensors")
+	m.climateGuard = cfgBool("climate_guard")
 	m.wifi = &wifiManager{iface: m.wifiIface}
 	carReconnect := m.wifiIface != "" && nmcliAvailable()
 	if m.wifiIface != "" && !carReconnect {
@@ -557,6 +563,12 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 		}
 
 		my := m.state.getModelYear()
+		if m.climateGuard {
+			// Not in this callback: it waits up to half a minute for the
+			// climate to start.
+			go m.setClimateGuarded(phev, my, mode, duration)
+			return
+		}
 		switch my {
 		case client.ModelYear14:
 			// Set the AC mode first
@@ -602,7 +614,7 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 
 func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	address := cfgString("address")
-	phev, err := client.New(client.AddressOption(address))
+	phev, err := client.New(client.AddressOption(address), client.KeyResyncOption(cfgBool("key_resync")))
 	if err != nil {
 		return err
 	}
@@ -621,6 +633,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	// ModelYear is set before Start returns; later changes would race.
 	m.state.setConnected(true, phev.ModelYear)
 	m.status.Reset()
+	m.regs.reset()
 	m.status.MY14 = phev.ModelYear == client.ModelYear14
 	// phev/available goes online with the first data from the car (carData).
 	m.publishRetained("/connection/last_connected", time.Now().Format(time.RFC3339))
@@ -706,6 +719,7 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 	dataStr := hex.EncodeToString(msg.Data)
 	m.publish(fmt.Sprintf("/register/%02x", msg.Register), dataStr)
 	m.publishExtraStatus(msg.Register, msg.Data)
+	m.regs.put(msg.Register, msg.Data)
 	switch reg := msg.Reg.(type) {
 	case *protocol.RegisterVIN:
 		m.state.setVIN(reg.VIN)
@@ -1243,6 +1257,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"~": "__TOPIC__"}`,
 	}
 	addExtraSensorDiscovery(discoveryData, m.extraSensors)
+	addDiscovery(discoveryData, climateGuardEntities, m.climateGuard)
 	// Entity names go without the device name: Home Assistant puts it in
 	// front of them itself.
 	mappings := map[string]string{
@@ -1287,6 +1302,8 @@ func init() {
 	// web_password and web_settings_file only come from the config file, so
 	// the password never shows up in the process list.
 	mqttCmd.Flags().String("web_listen", "", "Serve the web interface on this address, e.g. 127.0.0.1:8080 (off if empty)")
+	mqttCmd.Flags().Bool("key_resync", false, "Recover from the car's encoding complaints: resync to the key it expects, cap resends, ask for a new key")
+	mqttCmd.Flags().Bool("climate_guard", false, "Start the climate like the official app: keep the car's climate timers, refuse when it can't run, confirm it started")
 	mqttCmd.Flags().Bool("extra_sensors", false, "Publish extra status sensors: ignition, charge type, the car's timers, battery heater, ...")
 
 	viper.BindPFlag("mqtt_server", mqttCmd.Flags().Lookup("mqtt_server"))
@@ -1301,6 +1318,8 @@ func init() {
 	viper.BindPFlag("wifi_interface", mqttCmd.Flags().Lookup("wifi_interface"))
 	viper.BindPFlag("web_listen", mqttCmd.Flags().Lookup("web_listen"))
 	viper.BindPFlag("extra_sensors", mqttCmd.Flags().Lookup("extra_sensors"))
+	viper.BindPFlag("key_resync", mqttCmd.Flags().Lookup("key_resync"))
+	viper.BindPFlag("climate_guard", mqttCmd.Flags().Lookup("climate_guard"))
 	// Config file only, like web_password; turning the login off must be a
 	// deliberate choice.
 	viper.SetDefault("web_auth", true)

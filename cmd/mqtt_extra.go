@@ -86,16 +86,22 @@ var retiredExtraSensors = []extraSensor{
 	{component: "sensor", key: "alarm_last_event"},
 }
 
-// addExtraSensorDiscovery adds the extra sensors to a discovery template
+// addDiscovery adds an optional feature's entities to a discovery template
 // map: their configs when enabled, or empty ones that remove them.
-func addExtraSensorDiscovery(data map[string]string, enabled bool) {
-	for _, e := range extraSensors {
+func addDiscovery(data map[string]string, entities []extraSensor, enabled bool) {
+	for _, e := range entities {
 		topic, config := e.discovery()
 		if !enabled {
 			config = ""
 		}
 		data[topic] = config
 	}
+}
+
+// addExtraSensorDiscovery adds the extra sensors to a discovery template
+// map, and removes the retired ones.
+func addExtraSensorDiscovery(data map[string]string, enabled bool) {
+	addDiscovery(data, extraSensors, enabled)
 	for _, e := range retiredExtraSensors {
 		topic, _ := e.discovery()
 		data[topic] = ""

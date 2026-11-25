@@ -233,8 +233,8 @@ function tiles(st) {
     ["Doors open", list(doors, "/door/", "open", "all closed")],
     ["Lights on", list(lights, "/lights/", "on")],
     ["Climate", v("/climate/state")],
-    // extra_sensors: only shown when the gateway publishes them.
-    ...[["Ignition", v("/power/switch")], ["Charge type", v("/charge/type")]]
+    // extra_sensors and climate_guard: only shown when published.
+    ...[["Ignition", v("/power/switch")], ["Charge type", v("/charge/type")], ["Last command", v("/command/result")]]
       .filter(([, x]) => x !== undefined),
     ["Model", st.model_year],
     ["VIN", st.vin],

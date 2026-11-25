@@ -161,3 +161,22 @@ func TestValidateAndDecodeMessage(t *testing.T) {
 		})
 	}
 }
+
+func TestSecurityKeyResyncSend(t *testing.T) {
+	testData, err := hex.DecodeString("5e0c0001becfe9adada5158b0181")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sk := &SecurityKey{}
+	if sk.ResyncSend(0x12) {
+		t.Error("resynced without a key map")
+	}
+	sk.Update(testData)
+	want := sk.keyMap[0x42]
+	if !sk.ResyncSend(want) {
+		t.Fatalf("key 0x%02x not found", want)
+	}
+	if got := sk.SKey(false); got != want {
+		t.Errorf("send key after resync = 0x%02x, want 0x%02x", got, want)
+	}
+}

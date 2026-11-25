@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/buxtronix/phev2mqtt/protocol"
@@ -98,6 +99,98 @@ type Client struct {
 
 	done      chan struct{}
 	closeOnce sync.Once
+
+	// keyResync turns on recovery from the car's encoding complaints
+	// (0xbb): resync to the key the car expected, ignore repeated
+	// complaints, cap resends and ask for a new key when they pile up.
+	// Adapted from PHEV Link (phev-remote-plus,
+	// https://github.com/Anwo91/phev-remote-plus, PhevSession.kt and
+	// SecurityKey.kt), Copyright (C) 2026 Anwo91 and contributors,
+	// GPL-3.0-or-later; see README.md, Credits.
+	keyResync bool
+	// startRespType is the start response for this car (set by manage,
+	// read by the reader to ask for a new key); 0 until the car started.
+	startRespType atomic.Uint32
+	// Encoding complaint bookkeeping, used by the reader goroutine only.
+	lastBadHint byte
+	lastBadAt   time.Time
+	badTimes    []time.Time
+	lastRekey   time.Time
+}
+
+// KeyResyncOption turns recovery from encoding complaints on or off.
+func KeyResyncOption(on bool) func(*Client) {
+	return func(c *Client) {
+		c.keyResync = on
+	}
+}
+
+const (
+	// A complaint repeating the same key this soon refers to a packet sent
+	// before the resync; acting on it again would desync the key.
+	duplicateComplaintWindow = 2 * time.Second
+	// This many complaints within rekeyWindow ask the car for a new key...
+	rekeyComplaints = 5
+	rekeyWindow     = 15 * time.Second
+	// ...at most this often.
+	rekeyInterval = 10 * time.Second
+	// A write is resent at most this many times after complaints.
+	maxComplaintResends = 3
+)
+
+// onBadEncoding handles an encoding complaint from the car before anything
+// else sees it. It returns false for a repeated complaint, which is dropped.
+func (c *Client) onBadEncoding(m *protocol.PhevMessage) bool {
+	if len(m.Data) < 1 {
+		return true
+	}
+	hint, now := m.Data[0], time.Now()
+	if hint == c.lastBadHint && now.Sub(c.lastBadAt) < duplicateComplaintWindow {
+		log.Debugf("%%PHEV_KEY_RESYNC%% ignoring repeated complaint (key 0x%02x)", hint)
+		return false
+	}
+	c.lastBadHint, c.lastBadAt = hint, now
+	found := c.key.ResyncSend(hint)
+	log.Infof("%%PHEV_KEY_RESYNC%% car expected key 0x%02x, resynced: %v", hint, found)
+
+	recent := c.badTimes[:0]
+	for _, t := range c.badTimes {
+		if now.Sub(t) < rekeyWindow {
+			recent = append(recent, t)
+		}
+	}
+	c.badTimes = append(recent, now)
+	if len(c.badTimes) >= rekeyComplaints && now.Sub(c.lastRekey) > rekeyInterval {
+		c.lastRekey = now
+		c.requestNewKey()
+	}
+	return true
+}
+
+// requestNewKey asks the car for a new session key, as the official app
+// does after repeated complaints: a start response with ack 0.
+func (c *Client) requestNewKey() {
+	typ := byte(c.startRespType.Load())
+	if typ == 0 {
+		return
+	}
+	log.Infof("%%PHEV_REKEY%% repeated encoding complaints, asking the car for a new key")
+	// Not from the reader itself: SendMessage can wait for the writer.
+	go func() {
+		if err := c.SendMessage(&protocol.PhevMessage{Type: typ, Ack: protocol.Request, Register: 0x01, Data: []byte{0x0}}); err != nil {
+			log.Debugf("%%PHEV_REKEY%% %v", err)
+		}
+	}()
+}
+
+// signalStarted tells Start the session has started. The car also sends a
+// start request when it hands out a new key mid-session, when nobody waits
+// on started any more, so the signal must never block.
+func (c *Client) signalStarted() {
+	select {
+	case c.started <- struct{}{}:
+	default:
+	}
 }
 
 // isClosed reports whether Close has been called.
@@ -237,6 +330,7 @@ func (c *Client) SetRegister(register byte, value []byte) error {
 	timer := time.After(10 * time.Second)
 	l := c.AddListener()
 	defer c.RemoveListener(l)
+	resends := 0
 SETREG:
 	if err := setRegister(xor); err != nil {
 		return err
@@ -251,7 +345,15 @@ SETREG:
 			if !ok {
 				return fmt.Errorf("listener channel closed")
 			}
-			if msg.Type == protocol.CmdInBadEncoding {
+			if msg.Type == protocol.CmdInBadEncoding && len(msg.Data) > 0 {
+				if c.keyResync {
+					// The reader has already resynced the key.
+					resends++
+					if resends > maxComplaintResends {
+						return fmt.Errorf("the car kept rejecting the encoding of register %02x", register)
+					}
+					log.Infof("%%PHEV_SETREG_RETRY%% resending register %02x after an encoding complaint", register)
+				}
 				xor = msg.Data[0]
 				goto SETREG
 			}
@@ -315,7 +417,8 @@ func (c *Client) manage() {
 				return
 			}
 			log.Debug("%%PHEV_START24_RECV%%")
-			c.started <- struct{}{}
+			c.startRespType.Store(uint32(protocol.CmdOutMy24StartResp))
+			c.signalStarted()
 		case protocol.CmdInMy18StartReq:
 			c.ModelYear = ModelYear18
 			if err := c.SendMessage(&protocol.PhevMessage{
@@ -328,7 +431,8 @@ func (c *Client) manage() {
 				return
 			}
 			log.Debug("%%PHEV_START18_RECV%%")
-			c.started <- struct{}{}
+			c.startRespType.Store(uint32(protocol.CmdOutMy18StartResp))
+			c.signalStarted()
 		case protocol.CmdInMy14StartReq:
 			c.ModelYear = ModelYear14
 			if err := c.SendMessage(&protocol.PhevMessage{
@@ -341,7 +445,8 @@ func (c *Client) manage() {
 				return
 			}
 			log.Debug("%%PHEV_START14_RECV%%")
-			c.started <- struct{}{}
+			c.startRespType.Store(uint32(protocol.CmdOutMy14StartResp))
+			c.signalStarted()
 		}
 	}
 }
@@ -372,6 +477,9 @@ func (c *Client) reader() {
 		log.Tracef("%%PHEV_TCP_RECV_DATA%%: %s", hex.EncodeToString(data[:n]))
 		messages := protocol.NewFromBytes(data[:n], c.key)
 		for _, m := range messages {
+			if c.keyResync && m.Type == protocol.CmdInBadEncoding && !c.onBadEncoding(m) {
+				continue
+			}
 			log.Debugf("%%PHEV_TCP_RECV_MSG%%: [%02x] %s", m.Xor, m.ShortForm())
 			c.lMu.Lock()
 			for _, l := range c.listeners {

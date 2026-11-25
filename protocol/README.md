@@ -227,6 +227,15 @@ packet is reset using this value for the Xor, then it will likely be accepted.
 This can be a workaround given the current unknown algorithm for generating
 XOR values.
 
+The key map is a permutation of the 256 byte values, so `<exp>` also tells
+where in the key map the car is: with `key_resync`, the client continues
+sending from that position (`SecurityKey.ResyncSend`). The car repeats a
+complaint for packets sent before the resync, so a complaint with the same
+`<exp>` within 2 seconds is ignored. After 5 complaints in 15 seconds the client
+asks for a new key with a start response with ack 0 (`e4`/`e5`/... with ack
+`00`), as the official app does; the car answers with a new start request.
+After PHEV Link's `SecurityKey.kt` and `PhevSession.kt` (see the README credits).
+
 ## Registers
 
 Registers contain the bulk of information on the state of the vehicle.

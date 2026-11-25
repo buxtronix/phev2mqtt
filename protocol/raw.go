@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	log "github.com/sirupsen/logrus"
 	"math/rand"
+	"sync"
 )
 
 type SecurityState int
@@ -22,6 +23,9 @@ type SecurityKey struct {
 	securityKey byte
 	keyMap      []byte
 	sNum, rNum  byte
+	// mu guards the key map and indices: the client's reader and writer
+	// use them from different goroutines.
+	mu sync.Mutex
 }
 
 func (s *SecurityKey) GenerateProposal() []byte {
@@ -44,6 +48,8 @@ func (s *SecurityKey) AcceptProposal() {
 // then from this security key a key map is generated, essentially
 // an array of session keys which are rotated through.
 func (s *SecurityKey) Update(packet []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if len(packet) < 12 {
 		s.keyMap = []byte{} // Clear security keys.
 		s.securityKey = 0x0
@@ -91,6 +97,8 @@ func (s *SecurityKey) Update(packet []byte) {
 // The returned value is XORed with the raw packet from the car before
 // decoding it.
 func (s *SecurityKey) RKey(increment bool) byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if len(s.keyMap) == 0 {
 		log.Tracef("r_key=empty")
 		return 0
@@ -110,6 +118,8 @@ func (s *SecurityKey) RKey(increment bool) byte {
 // The returned value is XORed with the raw packet before sending
 // it to the car.
 func (s *SecurityKey) SKey(increment bool) byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if len(s.keyMap) == 0 {
 		log.Tracef("s_key=empty")
 		return 0
@@ -120,6 +130,25 @@ func (s *SecurityKey) SKey(increment bool) byte {
 	}
 	log.Tracef("s_key=%d", s.keyMap[ret])
 	return s.keyMap[ret]
+}
+
+// ResyncSend points the send index at the key the car said it expected, in
+// a 0xbb (bad encoding) packet, so the next packet is sent with that key.
+// The key map is a permutation, so the key gives the index. It reports
+// whether the key was found. Adapted from PHEV Link (phev-remote-plus,
+// https://github.com/Anwo91/phev-remote-plus, core/protocol/SecurityKey.kt),
+// Copyright (C) 2026 Anwo91 and contributors, GPL-3.0-or-later; see
+// README.md, Credits.
+func (s *SecurityKey) ResyncSend(expected byte) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, k := range s.keyMap {
+		if k == expected {
+			s.sNum = byte(i)
+			return true
+		}
+	}
+	return false
 }
 
 func XorMessageWith(message []byte, xor byte) []byte {

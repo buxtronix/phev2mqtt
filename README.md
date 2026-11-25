@@ -80,6 +80,10 @@ WiFi refuses the password, check letters that look alike, like `l`, `I` and `1`.
 
 For more sensors (ignition, charge type, the car's own timers
 and more), set `extra_sensors: true`; they are best known for 2014-2017 cars.
+`key_resync: true` recovers from the car rejecting the encryption without
+reconnecting, and `climate_guard: true` starts the climate like the official app:
+it keeps the car's own climate timers (2014-2017 cars), refuses while the car is
+switched on or quick charging, and reports whether the climate really started.
 
 All settings, with comments, are in `/etc/phev2mqtt/config.yaml`; the log is in
 `journalctl -u phev2mqtt` and in the web interface.
@@ -120,6 +124,7 @@ Published, under the prefix `phev` (`mqtt_topic_prefix`):
 | phev/charge/timer, timer_waiting, timer_failed, timer_schedule | With `extra_sensors`: the car's own charge timer *on*/*off*, waiting for it, a scheduled charge that failed, and its windows per day (JSON) |
 | phev/climate/timer, timer_schedule | With `extra_sensors`: the car's own climate timer *on*/*off*, and its start time per day (JSON) |
 | phev/battery/heater, too_cold | With `extra_sensors`: battery heater on (2014-2017 cars), and the car asking for the cable because the battery is too cold |
+| phev/command/result | With `climate_guard`: the result of the last climate command, e.g. *2026-11-25 07:30 Heat 20 min: done, the climate is running* |
 | phev/car/ev_ecu_error, screen_in_use, registration_standby, clock | With `extra_sensors`: EV-ECU communication error, the car's own screen in use, registration mode, and the car's clock |
 | phev/register/[register] | Raw register values, in hex |
 
@@ -155,17 +160,20 @@ who reverse engineered most of the protocol, and improved by the contributors to
 It was inspired by [phev-remote](https://github.com/phev-remote) by
 [@papawattu](https://github.com/papawattu).
 
-The extra sensors (`extra_sensors`) and the Charger Connected and Interior Lights
-decoding come from [@corautem](https://github.com/corautem)'s
+The extra sensors (`extra_sensors`), the key resync (`key_resync`), the climate
+guard (`climate_guard`) and the Charger Connected and Interior Lights decoding come
+from [@corautem](https://github.com/corautem)'s
 [fork](https://github.com/corautem/phev2mqtt), which adapted them from
 **PHEV Link** ([Anwo91/phev-remote-plus](https://github.com/Anwo91/phev-remote-plus)),
 Copyright (C) 2026 Anwo91 and contributors: register layouts from its
-`Registers.kt`, `RegisterDecoder.kt` and `ScheduleDecoder.kt`, and test values from
-`LogicTest.kt` and `ScheduleDecoderTest.kt`, translated from Kotlin to Go. All of it
+`Registers.kt`, `RegisterDecoder.kt` and `ScheduleDecoder.kt`, command layouts from
+`CarCommand.kt`, the key resync from `SecurityKey.kt` and `PhevSession.kt`, and test
+values from `LogicTest.kt` and `ScheduleDecoderTest.kt`, translated from Kotlin to Go. All of it
 is from PHEV Link's source as published on 14 October 2026, before version 1.0.92,
 under the GNU General Public License version 3 or later; nothing from its later,
 proprietary versions is used. The files concerned (`protocol/status.go`,
-`protocol/status_test.go`, `protocol/message.go`) say so in their comments.
+`protocol/status_test.go`, `protocol/message.go`, `protocol/raw.go`,
+`client/client.go`, `cmd/climate_guard.go`) say so in their comments.
 
 This fork is maintained by Andre Thomasse ([@athomasse](https://github.com/athomasse)).
 Issues and pull requests are welcome.
