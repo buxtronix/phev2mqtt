@@ -11,8 +11,13 @@ over the car's own WiFi. A fork of [buxtronix/phev2mqtt](https://github.com/buxt
 ## What it does
 
  * Shows the battery, charging, plug, doors, locks, lights and climate in Home Assistant
-   (or anything else that speaks MQTT)
- * Pre-heats or cools the car, switches the lights and cancels the charge timer
+   (or anything else that speaks MQTT), and optionally the ignition, charge type, the
+   car's own charge and climate timers and more (`extra_sensors`)
+ * Pre-heats or cools the car, switches the lights and cancels the charge timer;
+   optionally like the official app, keeping the car's own climate timers and reporting
+   whether the climate really started (`climate_guard`)
+ * Optionally recovers from the car rejecting the encryption without reconnecting
+   (`key_resync`)
  * Tells you whether the car is connected, how strong its WiFi is, and when it last
    connected
  * Has a web interface for the status, the controls, the setup and the log
