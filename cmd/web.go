@@ -154,6 +154,8 @@ type webState struct {
 	MQTTServer    string `json:"mqtt_server"`
 	Version       string `json:"version"` // The release.
 	Build         string `json:"build"`
+	// climate_guard is on: show its last result, also before the first.
+	ClimateGuard bool `json:"climate_guard"`
 }
 
 func (ws *webServer) currentState() webState {
@@ -163,6 +165,7 @@ func (ws *webServer) currentState() webState {
 		MQTTServer:    cfgString("mqtt_server"),
 		Version:       releaseVersion(),
 		Build:         Version,
+		ClimateGuard:  ws.m.climateGuard,
 	}
 }
 

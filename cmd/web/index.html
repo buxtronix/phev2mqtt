@@ -233,9 +233,11 @@ function tiles(st) {
     ["Doors open", list(doors, "/door/", "open", "all closed")],
     ["Lights on", list(lights, "/lights/", "on")],
     ["Climate", v("/climate/state")],
-    // extra_sensors and climate_guard: only shown when published.
-    ...[["Ignition", v("/power/switch")], ["Charge type", v("/charge/type")], ["Last command", v("/command/result")]]
+    // extra_sensors: only shown when published.
+    ...[["Ignition", v("/power/switch")], ["Charge type", v("/charge/type")]]
       .filter(([, x]) => x !== undefined),
+    // climate_guard: always, "–" before the first command.
+    ...(st.climate_guard ? [["Last command", v("/command/result")]] : []),
     ["Model", st.model_year],
     ["VIN", st.vin],
     ["Last update", st.updated ? ago(st.updated) : undefined],
