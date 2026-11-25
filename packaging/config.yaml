@@ -27,6 +27,17 @@ mqtt_password: ""
 # Assistant.
 # extra_sensors: false
 
+# Recover from the car's complaints about the encryption (it rejects a
+# packet): continue with the key the car expects instead of piling up
+# errors and reconnecting, and ask for a new key when they keep coming.
+# key_resync: false
+
+# Start the climate the way the official app does: keep the car's own
+# climate timers (2014-2017 cars), refuse with a reason while the car is
+# switched on or quick charging, and confirm the climate really started.
+# Results go to phev/command/result ("Last Command Result").
+# climate_guard: false
+
 # Restart the WiFi interface when the car has been unreachable this long
 # (0s = never). The service may run `ip link` for this; it cannot use sudo.
 # With NetworkManager this is rarely needed: phev2mqtt itself brings the car's
