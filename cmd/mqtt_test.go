@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -164,12 +166,33 @@ func TestDiscoveryStateTopicsArePublished(t *testing.T) {
 		published["~"+topic] = true
 	}
 
+	// The extra sensors' topics, from the registers they are decoded from.
+	tracker := &protocol.StatusTracker{MY14: true}
+	for reg, data := range map[byte]string{
+		0x02: "00010000", 0x12: "1a0a0e0c1e0002", 0x14: "1a0a0e12341e01",
+		0x15: "00" + strings.Repeat("41", 17) + "0102", 0x18: "ffffffff07ffff1fffffffff07ffff1f",
+		0x19: "01ffffffff07ffff1f", 0x1a: "0400", 0x1b: "12", 0x1d: "5a030000",
+		0x1e: "0001", 0x1f: "011e00", 0x23: "0000000202", 0x26: "01", 0x2c: "00",
+	} {
+		raw, err := hex.DecodeString(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for topic := range tracker.Update(reg, raw) {
+			published["~"+topic] = true
+		}
+	}
+
 	m, b := newTestClient("phev")
+	m.extraSensors = true
 	m.publishHomeAssistantDiscovery("VIN123", "phev")
 	if len(b.published) == 0 {
 		t.Fatal("no discovery published")
 	}
 	for topic, payload := range b.published {
+		if payload == "" {
+			continue // removes an entity
+		}
 		var config struct {
 			StateTopic string `json:"state_topic"`
 		}

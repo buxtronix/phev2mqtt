@@ -217,11 +217,11 @@ const lights = { head: "head", parking: "parking", interior: "interior", hazard:
 
 function tiles(st) {
   const v = (k) => st.values[k];
-  const list = (map, prefix, on) => {
+  const list = (map, prefix, on, none = "none") => {
     const known = Object.keys(map).filter((k) => v(prefix + k) !== undefined);
     if (!known.length) return undefined;
     const hit = known.filter((k) => v(prefix + k) === on).map((k) => map[k]);
-    return hit.length ? hit.join(", ") : "none";
+    return hit.length ? hit.join(", ") : none;
   };
   const locked = v("/door/locked");
   return [
@@ -230,9 +230,12 @@ function tiles(st) {
     ["Charge remaining", v("/charge/remaining") !== undefined ? v("/charge/remaining") + " min" : undefined],
     ["Plug", v("/charge/plug")],
     ["Locked", locked === "closed" ? "locked" : locked === "open" ? "unlocked" : undefined],
-    ["Open", list(doors, "/door/", "open")],
+    ["Doors open", list(doors, "/door/", "open", "all closed")],
     ["Lights on", list(lights, "/lights/", "on")],
     ["Climate", v("/climate/state")],
+    // extra_sensors: only shown when the gateway publishes them.
+    ...[["Ignition", v("/power/switch")], ["Charge type", v("/charge/type")]]
+      .filter(([, x]) => x !== undefined),
     ["Model", st.model_year],
     ["VIN", st.vin],
     ["Last update", st.updated ? ago(st.updated) : undefined],

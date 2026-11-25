@@ -153,6 +153,10 @@ type mqttClient struct {
 	// profile, shared with the web interface; set before anything runs.
 	wifiIface string
 	wifi      *wifiManager
+	// extra_sensors, and the registers they are decoded from; the tracker
+	// is only used by the car loop.
+	extraSensors bool
+	status       protocol.StatusTracker
 
 	// Shared with the MQTT callbacks and the web interface.
 	state *gatewayState
@@ -317,6 +321,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.state = newGatewayState()
 	m.lastError = nil
 	m.wifiIface = cfgString("wifi_interface")
+	m.extraSensors = cfgBool("extra_sensors")
 	m.wifi = &wifiManager{iface: m.wifiIface}
 	carReconnect := m.wifiIface != "" && nmcliAvailable()
 	if m.wifiIface != "" && !carReconnect {
@@ -615,6 +620,8 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 	}
 	// ModelYear is set before Start returns; later changes would race.
 	m.state.setConnected(true, phev.ModelYear)
+	m.status.Reset()
+	m.status.MY14 = phev.ModelYear == client.ModelYear14
 	// phev/available goes online with the first data from the car (carData).
 	m.publishRetained("/connection/last_connected", time.Now().Format(time.RFC3339))
 	m.publishWifiSignal(m.wifiIface)
@@ -698,6 +705,7 @@ var boolOpen = map[bool]string{
 func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 	dataStr := hex.EncodeToString(msg.Data)
 	m.publish(fmt.Sprintf("/register/%02x", msg.Register), dataStr)
+	m.publishExtraStatus(msg.Register, msg.Data)
 	switch reg := msg.Reg.(type) {
 	case *protocol.RegisterVIN:
 		m.state.setVIN(reg.VIN)
@@ -1234,6 +1242,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		},
 		"~": "__TOPIC__"}`,
 	}
+	addExtraSensorDiscovery(discoveryData, m.extraSensors)
 	// Entity names go without the device name: Home Assistant puts it in
 	// front of them itself.
 	mappings := map[string]string{
@@ -1278,6 +1287,7 @@ func init() {
 	// web_password and web_settings_file only come from the config file, so
 	// the password never shows up in the process list.
 	mqttCmd.Flags().String("web_listen", "", "Serve the web interface on this address, e.g. 127.0.0.1:8080 (off if empty)")
+	mqttCmd.Flags().Bool("extra_sensors", false, "Publish extra status sensors: ignition, charge type, the car's timers, battery heater, ...")
 
 	viper.BindPFlag("mqtt_server", mqttCmd.Flags().Lookup("mqtt_server"))
 	viper.BindPFlag("mqtt_username", mqttCmd.Flags().Lookup("mqtt_username"))
@@ -1290,6 +1300,7 @@ func init() {
 	viper.BindPFlag("update_interval", mqttCmd.Flags().Lookup("update_interval"))
 	viper.BindPFlag("wifi_interface", mqttCmd.Flags().Lookup("wifi_interface"))
 	viper.BindPFlag("web_listen", mqttCmd.Flags().Lookup("web_listen"))
+	viper.BindPFlag("extra_sensors", mqttCmd.Flags().Lookup("extra_sensors"))
 	// Config file only, like web_password; turning the login off must be a
 	// deliberate choice.
 	viper.SetDefault("web_auth", true)
