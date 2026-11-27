@@ -40,12 +40,6 @@ var (
 	climateConfirmWait = 30 * time.Second
 )
 
-// climateGuardEntities are published with climate_guard.
-var climateGuardEntities = []extraSensor{
-	{"sensor", "last_command_result", "Last Command Result", commandResultTopic,
-		`"icon": "mdi:history", "entity_category": "diagnostic"`},
-}
-
 // regCache holds the latest value of each register in the current session,
 // and when the car sent it.
 type regCache struct {
@@ -81,10 +75,17 @@ func (r *regCache) get(register byte) ([]byte, bool) {
 
 // since returns a register's value if the car sent it after t.
 func (r *regCache) since(register byte, t time.Time) ([]byte, bool) {
+	d, _, ok := r.sinceAt(register, t)
+	return d, ok
+}
+
+// sinceAt is since, with when the car sent the value.
+func (r *regCache) sinceAt(register byte, t time.Time) ([]byte, time.Time, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	d, ok := r.data[register]
-	return d, ok && r.at[register].After(t)
+	at := r.at[register]
+	return d, at, ok && at.After(t)
 }
 
 // carWriter writes a register on the car: client.Client's SetRegister, or a

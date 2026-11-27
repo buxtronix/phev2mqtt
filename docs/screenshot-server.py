@@ -31,7 +31,7 @@ STATE = {
         "/command/result": local(cmd_at) + " Heat 20 min: done, the climate is running",
     },
     "mqtt_connected": True, "mqtt_server": "tcp://192.168.1.10:1883",
-    "version": "0.6.2", "build": "0.6.2", "climate_guard": True,
+    "version": "0.6.2", "build": "0.6.2", "climate_guard": True, "extra_commands": True,
 }
 LOG = [(-9, "info", "Using config file: /etc/phev2mqtt/config.yaml"),
        (-9, "info", "Connecting to MQTT broker tcp://192.168.1.10:1883"),

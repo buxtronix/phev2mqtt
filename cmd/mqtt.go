@@ -160,8 +160,10 @@ type mqttClient struct {
 	// climate_guard: the registers of the current session, and one guarded
 	// climate command at a time.
 	climateGuard bool
-	regs         regCache
-	commandMu    sync.Mutex
+	// extra_commands: buttons such as Sync Car Clock (commands.go).
+	extraCommands bool
+	regs          regCache
+	commandMu     sync.Mutex
 
 	// Shared with the MQTT callbacks and the web interface.
 	state *gatewayState
@@ -328,6 +330,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.wifiIface = cfgString("wifi_interface")
 	m.extraSensors = cfgBool("extra_sensors")
 	m.climateGuard = cfgBool("climate_guard")
+	m.extraCommands = cfgBool("extra_commands")
 	m.wifi = &wifiManager{iface: m.wifiIface}
 	carReconnect := m.wifiIface != "" && nmcliAvailable()
 	if m.wifiIface != "" && !carReconnect {
@@ -500,6 +503,13 @@ func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Messag
 				phev.Close()
 			}
 		}
+	} else if msg.Topic() == m.topic("/set/sync_clock") {
+		if !m.extraCommands || msg.Retained() {
+			// A retained command would set the clock on every connect.
+			log.Infof("Ignoring %s: extra_commands is off, or the message is retained", msg.Topic())
+			return
+		}
+		go m.syncClock(phev)
 	} else if msg.Topic() == m.topic("/set/parkinglights") {
 		values := map[string]byte{"on": 0x1, "off": 0x2}
 		if v, ok := values[strings.ToLower(string(msg.Payload()))]; ok {
@@ -1257,7 +1267,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic string) {
 		"~": "__TOPIC__"}`,
 	}
 	addExtraSensorDiscovery(discoveryData, m.extraSensors)
-	addDiscovery(discoveryData, climateGuardEntities, m.climateGuard)
+	addDiscovery(discoveryData, commandResultEntities, m.climateGuard || m.extraCommands)
+	addDiscovery(discoveryData, extraCommandEntities, m.extraCommands)
 	// Entity names go without the device name: Home Assistant puts it in
 	// front of them itself.
 	mappings := map[string]string{
@@ -1304,6 +1315,7 @@ func init() {
 	mqttCmd.Flags().String("web_listen", "", "Serve the web interface on this address, e.g. 127.0.0.1:8080 (off if empty)")
 	mqttCmd.Flags().Bool("key_resync", false, "Recover from the car's encoding complaints: resync to the key it expects, cap resends, ask for a new key")
 	mqttCmd.Flags().Bool("climate_guard", false, "Start the climate like the official app: keep the car's climate timers, refuse when it can't run, confirm it started")
+	mqttCmd.Flags().Bool("extra_commands", false, "Extra command buttons (Sync Car Clock), with their results in phev/command/result")
 	mqttCmd.Flags().Bool("extra_sensors", false, "Publish extra status sensors: ignition, charge type, the car's timers, battery heater, ...")
 
 	viper.BindPFlag("mqtt_server", mqttCmd.Flags().Lookup("mqtt_server"))
@@ -1320,6 +1332,7 @@ func init() {
 	viper.BindPFlag("extra_sensors", mqttCmd.Flags().Lookup("extra_sensors"))
 	viper.BindPFlag("key_resync", mqttCmd.Flags().Lookup("key_resync"))
 	viper.BindPFlag("climate_guard", mqttCmd.Flags().Lookup("climate_guard"))
+	viper.BindPFlag("extra_commands", mqttCmd.Flags().Lookup("extra_commands"))
 	// Config file only, like web_password; turning the login off must be a
 	// deliberate choice.
 	viper.SetDefault("web_auth", true)

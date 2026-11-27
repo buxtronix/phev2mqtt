@@ -52,7 +52,7 @@ section { background: var(--card); border: 1px solid var(--line); border-radius:
 #tiles h3:first-child { margin-top: 0; }
 .status-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 12px; }
 .status-head h2 { margin: 0; }
-.result { margin-top: 8px; font-size: .9rem; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.result { margin: 8px 0; font-size: .9rem; display: flex; flex-wrap: wrap; gap: 4px 8px; }
 .result .when { color: var(--muted); }
 .result.ok .what { color: var(--ok); } .result.warn .what { color: var(--warn); } .result.bad .what { color: var(--bad); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -107,6 +107,7 @@ input, select {
 
   <section>
     <h2>Controls</h2>
+    <div class="result" id="command-result" hidden><span class="when"></span><span class="what"></span></div>
     <h3>Climate</h3>
     <div class="row">
       <label class="check">for
@@ -118,14 +119,14 @@ input, select {
       <button data-car data-cmd="climate_off" data-value="off">Off</button>
       <button data-car data-cmd="climate_reset" data-value="reset" title="Clears the 'terminated' climate state">Clear terminated</button>
     </div>
-    <div class="result" id="climate-result" hidden><span class="when"></span><span class="what"></span></div>
-    <h3>Lights and charging</h3>
+    <h3>Lights, charging and clock</h3>
     <div class="row">
       <button data-car data-cmd="headlights" data-value="on">Headlights on</button>
       <button data-car data-cmd="headlights" data-value="off">Headlights off</button>
       <button data-car data-cmd="parkinglights" data-value="on">Parking lights on</button>
       <button data-car data-cmd="parkinglights" data-value="off">Parking lights off</button>
       <button data-car data-cmd="cancelchargetimer" data-value="cancel">Cancel charge timer</button>
+      <button data-car data-cmd="sync_clock" data-extra hidden title="Sets the car's clock to this gateway's">Sync car clock</button>
     </div>
     <h3>Connection</h3>
     <div class="row">
@@ -227,7 +228,7 @@ const lights = { head: "head", parking: "parking", interior: "interior", hazard:
 function carClock(offset) {
   if (offset === undefined) return undefined;
   const s = Number(offset), a = Math.abs(s);
-  const t = new Date(Date.now() + s * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const t = new Date(Date.now() + s * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   if (a < 30) return t + ", on time";
   const d = a < 90 ? a + " s" : a < 5400 ? Math.round(a / 60) + " min" : (a / 3600).toFixed(1).replace(/\.0$/, "") + " h";
   return t + ", " + d + (s > 0 ? " ahead" : " behind");
@@ -272,22 +273,25 @@ function tileGroups(st) {
   ];
 }
 
-// renderClimateResult shows climate_guard's last result under the climate
-// buttons: "2026-11-25 18:36 Heat 20 min: done, ..." as time and text.
-function renderClimateResult(st) {
-  const box = $("climate-result");
-  box.hidden = !st.climate_guard;
-  if (!st.climate_guard) return;
+// renderCommandResult shows the last result of climate_guard or
+// extra_commands at the top of the controls: "2026-11-25 18:36 Heat 20 min:
+// done, ..." as time and text.
+function renderCommandResult(st) {
+  const box = $("command-result");
+  const on = st.climate_guard || st.extra_commands;
+  box.hidden = !on;
+  for (const b of document.querySelectorAll("button[data-extra]")) b.hidden = !st.extra_commands;
+  if (!on) return;
   const r = st.values["/command/result"];
   const m = r && r.match(/^(\d{4}-\d\d-\d\d) (\d\d:\d\d) (.*)$/);
-  let when = "", what = r || "No climate command yet";
+  let when = "", what = r || "No command yet";
   if (m) {
     what = m[3];
     const d = new Date();
     const today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     when = m[1] === today ? m[2] : m[1] + " " + m[2];
   }
-  box.className = "result " + (!r ? "" : /refused|did not start/.test(what) ? "warn" : /failed/.test(what) ? "bad" : "ok");
+  box.className = "result " + (!r ? "" : /refused|did not|but|still/.test(what) ? "warn" : /failed/.test(what) ? "bad" : "ok");
   box.querySelector(".when").textContent = when ? "Last command, " + when + ":" : "Last command:";
   box.querySelector(".what").textContent = what;
 }
@@ -319,7 +323,7 @@ function render(st) {
     }));
     return [h, g];
   }));
-  renderClimateResult(st);
+  renderCommandResult(st);
 
   for (const b of document.querySelectorAll("button[data-car]")) b.disabled = !st.car_connected;
   const tc = $("toggle-connection");

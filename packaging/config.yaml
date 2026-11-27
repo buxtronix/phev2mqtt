@@ -38,6 +38,10 @@ mqtt_password: ""
 # Results go to phev/command/result ("Last Command Result").
 # climate_guard: false
 
+# Extra command buttons: Sync Car Clock sets the car's clock to this
+# gateway's (phev/set/sync_clock). Results go to phev/command/result.
+# extra_commands: false
+
 # Restart the WiFi interface when the car has been unreachable this long
 # (0s = never). The service may run `ip link` for this; it cannot use sudo.
 # With NetworkManager this is rarely needed: phev2mqtt itself brings the car's

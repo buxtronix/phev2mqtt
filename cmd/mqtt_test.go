@@ -188,6 +188,7 @@ func TestDiscoveryStateTopicsArePublished(t *testing.T) {
 	m, b := newTestClient("phev")
 	m.extraSensors = true
 	m.climateGuard = true
+	m.extraCommands = true
 	m.publishHomeAssistantDiscovery("VIN123", "phev")
 	if len(b.published) == 0 {
 		t.Fatal("no discovery published")

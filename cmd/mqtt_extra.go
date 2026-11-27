@@ -14,10 +14,10 @@ import (
 
 // extraSensor is one Home Assistant entity for an extra status value.
 type extraSensor struct {
-	component string // sensor or binary_sensor
+	component string // sensor, binary_sensor or button
 	key       string // object and unique id suffix
 	name      string
-	topic     string // state topic, after the prefix
+	topic     string // state topic (command topic for a button), after the prefix
 	fields    string // extra discovery fields, JSON object members
 }
 
@@ -56,11 +56,15 @@ var extraSensors = []extraSensor{
 // config.
 func (e extraSensor) discovery() (string, string) {
 	topic := "%s/" + e.component + "/%s_" + e.key + "/config"
+	topicKey := "state_topic"
+	if e.component == "button" {
+		topicKey = "command_topic"
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, `{
 		"name": %q,
-		"state_topic": "~%s",
-		%s,`, e.name, e.topic, e.fields)
+		"%s": "~%s",
+		%s,`, e.name, topicKey, e.topic, e.fields)
 	if e.component == "binary_sensor" {
 		b.WriteString(`
 		"payload_on": "on",

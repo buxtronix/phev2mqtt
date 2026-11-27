@@ -102,7 +102,7 @@ func (t *StatusTracker) Update(register byte, data []byte) map[string]string {
 			out["/car/registration_standby"] = onOff(data[18] == 1)
 		}
 	case TimeRegister:
-		if ts, ok := carTime(data); ok {
+		if ts, ok := CarTime(data); ok {
 			out["/car/clock"] = ts.Format(time.RFC3339)
 			// How far the car's clock is ahead (+) or behind (-), in seconds.
 			// The register arrives within a second of the car sending it.
@@ -244,9 +244,9 @@ func (t *StatusTracker) now() time.Time {
 	return time.Now()
 }
 
-// carTime decodes [yy mm dd hh mi ss], the car's clock in local time, or
+// CarTime decodes [yy mm dd hh mi ss], the car's clock in local time, or
 // false for an unset or out-of-range value.
-func carTime(b []byte) (time.Time, bool) {
+func CarTime(b []byte) (time.Time, bool) {
 	if len(b) < 6 {
 		return time.Time{}, false
 	}
