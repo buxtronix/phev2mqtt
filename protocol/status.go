@@ -37,7 +37,9 @@ var dayNames = [7]string{"sun", "mon", "tue", "wed", "thu", "fri", "sat"}
 type StatusTracker struct {
 	// MY14 enables values whose layout is only known for 2014-2017 cars.
 	MY14 bool
-	raw  map[byte][]byte
+	// Now is the gateway's clock, compared with the car's; nil is time.Now.
+	Now func() time.Time
+	raw map[byte][]byte
 }
 
 // Reset forgets all registers, e.g. when a new session with the car starts.
@@ -100,8 +102,11 @@ func (t *StatusTracker) Update(register byte, data []byte) map[string]string {
 			out["/car/registration_standby"] = onOff(data[18] == 1)
 		}
 	case TimeRegister:
-		if ts, ok := carTimestamp(data); ok {
-			out["/car/clock"] = ts
+		if ts, ok := carTime(data); ok {
+			out["/car/clock"] = ts.Format(time.RFC3339)
+			// How far the car's clock is ahead (+) or behind (-), in seconds.
+			// The register arrives within a second of the car sending it.
+			out["/car/clock_offset"] = fmt.Sprint(int64(ts.Sub(t.now()).Round(time.Second) / time.Second))
 		}
 	}
 
@@ -232,17 +237,23 @@ func scheduleTime(hour, min10 int) (string, bool) {
 	return fmt.Sprintf("%02d:%02d", hour, min10*10), true
 }
 
-// carTimestamp decodes [yy mm dd hh mi ss] in the car's local time as
-// RFC 3339, or false for an unset or out-of-range value.
-func carTimestamp(b []byte) (string, bool) {
+func (t *StatusTracker) now() time.Time {
+	if t.Now != nil {
+		return t.Now()
+	}
+	return time.Now()
+}
+
+// carTime decodes [yy mm dd hh mi ss], the car's clock in local time, or
+// false for an unset or out-of-range value.
+func carTime(b []byte) (time.Time, bool) {
 	if len(b) < 6 {
-		return "", false
+		return time.Time{}, false
 	}
 	if b[1] < 1 || b[1] > 12 || b[2] < 1 || b[2] > 31 || b[3] > 23 || b[4] > 59 || b[5] > 59 {
-		return "", false
+		return time.Time{}, false
 	}
-	t := time.Date(2000+int(b[0]), time.Month(b[1]), int(b[2]), int(b[3]), int(b[4]), int(b[5]), 0, time.Local)
-	return t.Format(time.RFC3339), true
+	return time.Date(2000+int(b[0]), time.Month(b[1]), int(b[2]), int(b[3]), int(b[4]), int(b[5]), 0, time.Local), true
 }
 
 func mustJSON(v interface{}) string {

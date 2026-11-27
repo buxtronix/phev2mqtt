@@ -130,7 +130,7 @@ Published, under the prefix `phev` (`mqtt_topic_prefix`):
 | phev/climate/timer, timer_schedule | With `extra_sensors`: the car's own climate timer *on*/*off*, and its start time per day (JSON) |
 | phev/battery/heater, too_cold | With `extra_sensors`: battery heater on (2014-2017 cars), and the car asking for the cable because the battery is too cold |
 | phev/command/result | With `climate_guard`: the result of the last climate command, e.g. *2026-11-25 07:30 Heat 20 min: done, the climate is running* |
-| phev/car/ev_ecu_error, screen_in_use, registration_standby, clock | With `extra_sensors`: EV-ECU communication error, the car's own screen in use, registration mode, and the car's clock |
+| phev/car/ev_ecu_error, screen_in_use, registration_standby, clock, clock_offset | With `extra_sensors`: EV-ECU communication error, the car's own screen in use, registration mode, the car's clock, and how many seconds it is ahead (+) of or behind (-) the gateway's clock |
 | phev/register/[register] | Raw register values, in hex |
 
 Commands:

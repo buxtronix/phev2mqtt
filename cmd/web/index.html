@@ -222,6 +222,17 @@ const doors = { driver: "driver", front_passenger: "passenger", rear_left: "rear
   rear_right: "rear right", bonnet: "bonnet", boot: "boot" };
 const lights = { head: "head", parking: "parking", interior: "interior", hazard: "hazard" };
 
+// carClock shows the car's clock now, from its offset to the gateway's
+// clock in seconds: "20:45, on time" or "20:48, 3 min ahead".
+function carClock(offset) {
+  if (offset === undefined) return undefined;
+  const s = Number(offset), a = Math.abs(s);
+  const t = new Date(Date.now() + s * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (a < 30) return t + ", on time";
+  const d = a < 90 ? a + " s" : a < 5400 ? Math.round(a / 60) + " min" : (a / 3600).toFixed(1).replace(/\.0$/, "") + " h";
+  return t + ", " + d + (s > 0 ? " ahead" : " behind");
+}
+
 // The status tiles, in groups. Values that only some setups publish
 // (extra_sensors) are left out when missing; the others show "–".
 function tileGroups(st) {
@@ -246,6 +257,7 @@ function tileGroups(st) {
     ]],
     ["Car", [
       ...optional("Ignition", v("/power/switch")),
+      ...optional("Car clock", carClock(v("/car/clock_offset"))),
       ["Climate", v("/climate/state")],
       ["Locked", locked === "closed" ? "locked" : locked === "open" ? "unlocked" : undefined],
       ["Doors open", list(doors, "/door/", "open", "all closed")],

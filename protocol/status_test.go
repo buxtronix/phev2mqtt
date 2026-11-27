@@ -70,7 +70,7 @@ func TestStatusTrackerSingleRegisters(t *testing.T) {
 		{"screen in use", false, 0x26, "01", map[string]string{"/car/screen_in_use": "on"}},
 		{"ev-ecu ok", false, 0x2c, "00", map[string]string{"/car/ev_ecu_error": "off"}},
 		{"registration standby", false, 0x15, vin, map[string]string{"/car/registration_standby": "on"}},
-		{"car clock", false, 0x12, "1a0a0e0c1e0002", map[string]string{"/car/clock": localRFC3339(2026, 10, 14, 12, 30, 0)}},
+		{"car clock", false, 0x12, "1a0a0e0c1e0002", map[string]string{"/car/clock": localRFC3339(2026, 10, 14, 12, 30, 0), "/car/clock_offset": "0"}},
 		// Field log (2014 car): every climate timer slot unset, timer off.
 		{"climate timer field log", false, 0x19, "01ffffffff07ffff1f", map[string]string{"/climate/timer": "off", "/climate/timer_schedule": "{}"}},
 		// Field log (2014 car): every charge timer slot unset.
@@ -81,7 +81,7 @@ func TestStatusTrackerSingleRegisters(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tr := &StatusTracker{MY14: test.my14}
+			tr := &StatusTracker{MY14: test.my14, Now: clockAt(2026, 10, 14, 12, 30, 0)}
 			got := tr.Update(test.reg, mustHex(t, test.data))
 			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf("got %v, want %v", got, test.want)
@@ -197,5 +197,30 @@ func TestChargePlugAndInteriorDecoding(t *testing.T) {
 		if r.Interior != want {
 			t.Errorf("0x23=%s: interior %v, want %v", data, r.Interior, want)
 		}
+	}
+}
+
+func clockAt(y, mo, d, h, mi, sec int) func() time.Time {
+	return func() time.Time { return time.Date(y, time.Month(mo), d, h, mi, sec, 0, time.Local) }
+}
+
+func TestCarClockOffset(t *testing.T) {
+	for _, test := range []struct {
+		name, data, want string
+		now              func() time.Time
+	}{
+		// Field value from the test car, 2026-11-26 20:45:41.
+		{"on time", "1a0b1a142d2904", "0", clockAt(2026, 11, 26, 20, 45, 41)},
+		{"ahead", "1a0b1a14302e04", "185", clockAt(2026, 11, 26, 20, 45, 41)},
+		{"behind", "1a0b1a142d0004", "-41", clockAt(2026, 11, 26, 20, 45, 41)},
+		// The car still on summer time after the change to winter time.
+		{"an hour ahead", "1a0a19040000", "3600", clockAt(2026, 10, 25, 3, 0, 0)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			tr := &StatusTracker{Now: test.now}
+			if got := tr.Update(TimeRegister, mustHex(t, test.data))["/car/clock_offset"]; got != test.want {
+				t.Errorf("offset %q, want %q", got, test.want)
+			}
+		})
 	}
 }

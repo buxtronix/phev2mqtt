@@ -46,6 +46,8 @@ var extraSensors = []extraSensor{
 		`"icon": "mdi:cellphone-link", "entity_category": "diagnostic"`},
 	{"sensor", "car_clock", "Car Clock", "/car/clock",
 		`"device_class": "timestamp", "icon": "mdi:clock-outline", "entity_category": "diagnostic"`},
+	{"sensor", "car_clock_offset", "Car Clock Offset", "/car/clock_offset",
+		`"device_class": "duration", "unit_of_measurement": "s", "state_class": "measurement", "icon": "mdi:clock-alert-outline", "entity_category": "diagnostic"`},
 }
 
 // discovery returns the entity's discovery topic and config, in the same

@@ -23,7 +23,7 @@ STATE = {
     "values": {
         "/battery/level": "80", "/charge/charging": "on", "/charge/type": "normal",
         "/charge/remaining": "90", "/charge/plug": "connected",
-        "/power/switch": "off", "/climate/state": "heat",
+        "/power/switch": "off", "/car/clock_offset": "0", "/climate/state": "heat",
         "/door/locked": "closed", "/door/driver": "closed", "/door/front_passenger": "closed",
         "/door/rear_left": "closed", "/door/rear_right": "closed", "/door/bonnet": "closed", "/door/boot": "closed",
         "/lights/head": "off", "/lights/parking": "off", "/lights/interior": "off", "/lights/hazard": "off",
