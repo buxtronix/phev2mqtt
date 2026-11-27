@@ -113,24 +113,18 @@ func (s *Connection) reader() {
 }
 
 func (s *Connection) writer() {
-	for {
-		select {
-		case msg, ok := <-s.Send:
-			if !ok {
-				log.Debug("%PHEV_SVC_SEND_CLOSE%")
-				s.Close()
-				return
-			}
-			if msg.Type != protocol.CmdInPingResp {
-				log.Debugf("%%PHEV_SVC_SND_MSG%%: %s", msg.ShortForm())
-			}
-			data := msg.EncodeToBytes(s.key)
-			s.conn.(*net.TCPConn).SetWriteDeadline(time.Now().Add(15 * time.Second))
-			if _, err := s.conn.Write(data); err != nil {
-				log.Debugf("%%PHEV_SVC_WRITE_ERR%%: %v", err)
-				s.Close()
-				return
-			}
+	for msg := range s.Send {
+		if msg.Type != protocol.CmdInPingResp {
+			log.Debugf("%%PHEV_SVC_SND_MSG%%: %s", msg.ShortForm())
+		}
+		data := msg.EncodeToBytes(s.key)
+		s.conn.(*net.TCPConn).SetWriteDeadline(time.Now().Add(15 * time.Second))
+		if _, err := s.conn.Write(data); err != nil {
+			log.Debugf("%%PHEV_SVC_WRITE_ERR%%: %v", err)
+			s.Close()
+			return
 		}
 	}
+	log.Debug("%PHEV_SVC_SEND_CLOSE%")
+	s.Close()
 }

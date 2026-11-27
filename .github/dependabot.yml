@@ -1,0 +1,24 @@
+# Weekly update PRs for Go modules and the (SHA-pinned) GitHub Actions, one
+# grouped PR per ecosystem. New releases must be a week old first; security
+# updates are not held back by that.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      go-modules:
+        patterns: ['*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ['*']

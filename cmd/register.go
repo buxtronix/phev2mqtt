@@ -77,32 +77,25 @@ func runRegister(cmd *cobra.Command, args []string) {
 	vinCh := make(chan string)
 
 	go func() {
-		for {
-			select {
-			case msg, ok := <-cl.Recv:
-				if !ok {
-					log.Errorf("Connection closed.")
-					close(vinCh)
-					return
-				}
-				switch msg.Type {
-				case protocol.CmdInResp:
-					if msg.Ack != protocol.Request {
-						break
-					}
-					if reg, ok := msg.Reg.(*protocol.RegisterVIN); ok {
-						vinCh <- reg.VIN
-					}
-					cl.Send <- &protocol.PhevMessage{
-						Type:     protocol.CmdOutSend,
-						Register: msg.Register,
-						Ack:      protocol.Ack,
-						Xor:      msg.Xor,
-						Data:     []byte{0x0},
-					}
-				}
+		defer close(vinCh)
+		for msg := range cl.Recv {
+			if msg.Type != protocol.CmdInResp || msg.Ack != protocol.Request {
+				continue
+			}
+			if reg, ok := msg.Reg.(*protocol.RegisterVIN); ok {
+				vinCh <- reg.VIN
+			}
+			if err := cl.SendMessage(&protocol.PhevMessage{
+				Type:     protocol.CmdOutSend,
+				Register: msg.Register,
+				Ack:      protocol.Ack,
+				Xor:      msg.Xor,
+				Data:     []byte{0x0},
+			}); err != nil {
+				break
 			}
 		}
+		log.Errorf("Connection closed.")
 	}()
 
 	vin, ok := <-vinCh

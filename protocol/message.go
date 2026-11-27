@@ -38,11 +38,6 @@ const (
 	Ack     byte = 0x1
 )
 
-var ackStr = map[byte]string{
-	0x0: "REQ",
-	0x1: "ACK",
-}
-
 var messageStr = map[byte]string{
 	0xf3: "PingReq",
 	0x3f: "PingResp",
@@ -714,7 +709,6 @@ type RegisterPreACState struct {
 
 func (r *RegisterPreACState) Encode() *PhevMessage {
 	panic("unimplemented")
-	return nil
 }
 
 func (r *RegisterPreACState) Decode(m *PhevMessage) {
@@ -848,7 +842,11 @@ func (r *RegisterChargePlug) Decode(m *PhevMessage) {
 	if len(m.Data) != 2 {
 		return
 	}
-	r.Connected = (m.Data[1] == 1 || m.Data[0] > 0)
+	// Observed: 0000 unplugged, 0001 plugged and waiting for the charge
+	// timer, 0002 plugged inside the charge window, 0202 charging.
+	// Adapted from PHEV Link's RegisterDecoder.kt (GPL-3.0-or-later; see
+	// README.md, Credits).
+	r.Connected = (m.Data[1] == 1 || m.Data[1] == 2 || m.Data[0] > 0)
 	r.raw = m.Data
 }
 
@@ -947,15 +945,16 @@ type RegisterLightStatus struct {
 
 func (r *RegisterLightStatus) Encode() *PhevMessage {
 	panic("unimplemented")
-	return nil
 }
 
 func (r *RegisterLightStatus) Decode(m *PhevMessage) {
 	if len(m.Data) != 5 {
 		return
 	}
-	// Switches between 2 for Off and 1 for On.
-	r.Interior = m.Data[4]&0b11 == 1
+	// Switches between 2 for Off and 1 for On. Bit 0 decides the interior
+	// light: 3 also means on (adapted from PHEV Link's RegisterDecoder.kt,
+	// GPL-3.0-or-later; see README.md, Credits).
+	r.Interior = m.Data[4]&1 == 1
 	r.Hazard = m.Data[3]&0b11 == 1
 	r.raw = m.Data
 }

@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>phev2mqtt</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7; --card: #ffffff; --text: #1d2228; --muted: #66707c;
+  --line: #dde1e6; --accent: #1f6feb; --accent-text: #ffffff;
+  --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e; --pill: #eef1f4;
+  --log-bg: #f6f8fa;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f1216; --card: #171b21; --text: #e6e9ed; --muted: #9aa4af;
+    --line: #2a313a; --accent: #4493f8; --accent-text: #0f1216;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --pill: #222830;
+    --log-bg: #11151a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1216; --card: #171b21; --text: #e6e9ed; --muted: #9aa4af;
+  --line: #2a313a; --accent: #4493f8; --accent-text: #0f1216;
+  --ok: #3fb950; --warn: #d29922; --bad: #f85149; --pill: #222830;
+  --log-bg: #11151a;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 960px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+h1 { font-size: 1.35rem; margin: 0; }
+h2 { font-size: 1rem; margin: 0 0 12px; }
+h3 { font-size: .85rem; margin: 12px 0 6px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.muted { color: var(--muted); }
+.pills { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.pill { background: var(--pill); border-radius: 999px; padding: 2px 10px; font-size: .85rem; }
+.pill::before { content: "●"; margin-right: 6px; }
+.pill.ok::before { color: var(--ok); } .pill.bad::before { color: var(--bad); } .pill.warn::before { color: var(--warn); }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.tile .k { font-size: .8rem; color: var(--muted); }
+.tile .v { font-size: 1.15rem; font-weight: 600; overflow-wrap: anywhere; }
+#tiles h3:first-child { margin-top: 0; }
+.status-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 12px; }
+.status-head h2 { margin: 0; }
+.result { margin: 8px 0; font-size: .9rem; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.result .when { color: var(--muted); }
+.result.ok .what { color: var(--ok); } .result.warn .what { color: var(--warn); } .result.bad .what { color: var(--bad); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button {
+  font: inherit; border: 1px solid var(--line); background: var(--pill); color: var(--text);
+  border-radius: 6px; padding: 6px 12px; cursor: pointer;
+}
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+label { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+input, select {
+  font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 8px; min-width: 0;
+}
+.form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.check { display: flex; gap: 8px; align-items: center; color: var(--text); font-size: .95rem; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.grid2 > section { min-width: 0; }
+.msg { min-height: 1.4em; font-size: .9rem; margin-top: 8px; }
+.msg.err { color: var(--bad); } .msg.ok { color: var(--ok); }
+.networks { list-style: none; margin: 8px 0 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; }
+.networks li { display: flex; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--line); cursor: pointer; }
+.networks li:first-child { border-top: 0; }
+.networks li:hover { background: var(--pill); }
+.networks .ssid { flex: 1; overflow-wrap: anywhere; }
+#log {
+  background: var(--log-bg); border: 1px solid var(--line); border-radius: 6px; margin: 8px 0 0;
+  padding: 8px; height: 320px; overflow: auto; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+#log .warning { color: var(--warn); } #log .error, #log .fatal, #log .panic { color: var(--bad); }
+#log .debug, #log .trace { color: var(--muted); }
+#log.errors-only > :not(.error):not(.fatal):not(.panic) { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>phev2mqtt</h1>
+    <span class="muted" id="version"></span>
+    <div class="pills">
+      <span class="pill" id="pill-car">Car</span>
+      <span class="pill" id="pill-mqtt">MQTT</span>
+      <span class="pill warn" id="pill-page">Connecting…</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="status-head"><h2>Status</h2><span class="muted" id="car-info"></span></div>
+    <div id="tiles"></div>
+  </section>
+
+  <section>
+    <h2>Controls</h2>
+    <div class="result" id="command-result" hidden><span class="when"></span><span class="what"></span></div>
+    <h3>Climate</h3>
+    <div class="row">
+      <label class="check">for
+        <select id="duration"><option>10</option><option>20</option><option selected>30</option></select> min
+      </label>
+      <button data-car data-cmd="climate_cool" data-duration>Cool</button>
+      <button data-car data-cmd="climate_heat" data-duration>Heat</button>
+      <button data-car data-cmd="climate_windscreen" data-duration>Windscreen</button>
+      <button data-car data-cmd="climate_off" data-value="off">Off</button>
+      <button data-car data-cmd="climate_reset" data-value="reset" title="Clears the 'terminated' climate state">Clear terminated</button>
+    </div>
+    <h3>Lights, charging and clock</h3>
+    <div class="row">
+      <button data-car data-cmd="headlights" data-value="on">Headlights on</button>
+      <button data-car data-cmd="headlights" data-value="off">Headlights off</button>
+      <button data-car data-cmd="parkinglights" data-value="on">Parking lights on</button>
+      <button data-car data-cmd="parkinglights" data-value="off">Parking lights off</button>
+      <button data-car data-cmd="cancelchargetimer" data-value="cancel">Cancel charge timer</button>
+      <button data-car data-cmd="sync_clock" data-extra hidden title="Sets the car's clock to this gateway's">Sync car clock</button>
+    </div>
+    <h3>Connection</h3>
+    <div class="row">
+      <button data-car data-cmd="refresh">Refresh status</button>
+      <button data-cmd="connection" data-value="restart">Reconnect to car</button>
+      <button data-cmd="connection" id="toggle-connection">Disconnect</button>
+      <button data-cmd="wifi_restart" title="Runs wifi_restart_command">Restart WiFi</button>
+      <button id="restart" type="button" title="Starts phev2mqtt afresh">Restart phev2mqtt</button>
+    </div>
+    <div class="msg" id="cmd-msg"></div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>MQTT</h2>
+      <form id="mqtt-form" class="form">
+        <label>Broker<input name="server" placeholder="tcp://192.168.1.10:1883" required></label>
+        <label>Username<input name="username" autocomplete="off"></label>
+        <label>Password<input name="password" type="password" autocomplete="new-password"></label>
+        <label>Topic prefix<input name="topic_prefix" required></label>
+        <label>Discovery prefix<input name="ha_discovery_prefix" required></label>
+        <label class="check"><input name="ha_discovery" type="checkbox"> Home Assistant discovery</label>
+        <label class="check"><input name="clear_password" type="checkbox"> Remove password</label>
+        <div class="row"><button class="primary" type="submit">Save and reconnect</button></div>
+      </form>
+      <div class="msg" id="mqtt-msg"></div>
+      <div class="muted" id="mqtt-file"></div>
+      <form id="name-form" class="form" style="margin-top:12px">
+        <label>Name in Home Assistant<input name="name" maxlength="64" autocomplete="off"></label>
+        <div class="row"><button type="submit">Rename</button></div>
+      </form>
+      <div class="msg" id="name-msg"></div>
+    </section>
+
+    <section>
+      <h2>Car WiFi</h2>
+      <div id="wifi-status" class="muted">Loading…</div>
+      <div class="row" style="margin-top:8px"><button id="wifi-scan" type="button">Scan</button></div>
+      <ul class="networks" id="networks" hidden></ul>
+      <form id="wifi-form" class="form" style="margin-top:12px">
+        <label>SSID<input name="ssid" placeholder="REMOTExxxxxx" required></label>
+        <label>Password<input name="password" type="password" autocomplete="new-password"></label>
+        <label>Cloned MAC (optional)<input name="cloned_mac" placeholder="aa:bb:cc:dd:ee:ff"></label>
+        <div class="row"><button class="primary" type="submit">Connect</button></div>
+      </form>
+      <div class="msg" id="wifi-msg"></div>
+    </section>
+  </div>
+
+  <section>
+    <div class="row">
+      <h2 style="margin:0">Log</h2>
+      <label class="check" style="margin-left:auto"><input type="checkbox" id="errors-only"> Errors only</label>
+      <label class="check"><input type="checkbox" id="autoscroll" checked> Follow</label>
+      <button id="log-clear" type="button">Clear</button>
+    </div>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let state = null;
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Requested-With": "phev2mqtt" },
+    body: JSON.stringify(body),
+  };
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+function say(id, text, ok) {
+  const el = $(id);
+  el.textContent = text;
+  el.className = "msg " + (ok ? "ok" : "err");
+}
+
+function ago(iso) {
+  if (!iso) return "never";
+  const s = Math.round((Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return s + " s ago";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return new Date(iso).toLocaleString();
+}
+
+const doors = { driver: "driver", front_passenger: "passenger", rear_left: "rear left",
+  rear_right: "rear right", bonnet: "bonnet", boot: "boot" };
+const lights = { head: "head", parking: "parking", interior: "interior", hazard: "hazard" };
+
+// carClock shows the car's clock now, from its offset to the gateway's
+// clock in seconds: "20:45, on time" or "20:48, 3 min ahead".
+function carClock(offset) {
+  if (offset === undefined) return undefined;
+  const s = Number(offset), a = Math.abs(s);
+  const t = new Date(Date.now() + s * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  if (a < 30) return t + ", on time";
+  const d = a < 90 ? a + " s" : a < 5400 ? Math.round(a / 60) + " min" : (a / 3600).toFixed(1).replace(/\.0$/, "") + " h";
+  return t + ", " + d + (s > 0 ? " ahead" : " behind");
+}
+
+// The status tiles, in groups. Values that only some setups publish
+// (extra_sensors) are left out when missing; the others show "–".
+function tileGroups(st) {
+  const v = (k) => st.values[k];
+  const list = (map, prefix, on, none = "none") => {
+    const known = Object.keys(map).filter((k) => v(prefix + k) !== undefined);
+    if (!known.length) return undefined;
+    const hit = known.filter((k) => v(prefix + k) === on).map((k) => map[k]);
+    return hit.length ? hit.join(", ") : none;
+  };
+  const optional = (k, value) => value === undefined ? [] : [[k, value]];
+  const locked = v("/door/locked");
+  const charging = v("/charge/charging");
+  const type = v("/charge/type");
+  return [
+    ["Battery and charging", [
+      ["Battery", v("/battery/level") !== undefined ? v("/battery/level") + " %" : undefined],
+      ["Charging", charging === "on" ? (type && type !== "none" && type !== "unknown" ? "yes, " + type : "yes")
+        : charging === "off" ? "no" : undefined],
+      ["Charge remaining", v("/charge/remaining") !== undefined ? v("/charge/remaining") + " min" : undefined],
+      ["Plug", v("/charge/plug")],
+    ]],
+    ["Car", [
+      ...optional("Ignition", v("/power/switch")),
+      ...optional("Car clock", carClock(v("/car/clock_offset"))),
+      ["Climate", v("/climate/state")],
+      ["Locked", locked === "closed" ? "locked" : locked === "open" ? "unlocked" : undefined],
+      ["Doors open", list(doors, "/door/", "open", "all closed")],
+      ["Lights on", list(lights, "/lights/", "on")],
+    ]],
+    ["Connection", [
+      ["Last update", st.updated ? ago(st.updated) : undefined],
+      ["Last connected", st.car_connected ? "now" : ago(st.last_connect)],
+      ["WiFi", v("/wifi/state") === "connected" && v("/wifi/signal") !== undefined
+        ? v("/wifi/signal") + " dBm" : v("/wifi/state")],
+    ]],
+  ];
+}
+
+// renderCommandResult shows the last result of climate_guard or
+// extra_commands at the top of the controls: "2026-11-25 18:36 Heat 20 min:
+// done, ..." as time and text.
+function renderCommandResult(st) {
+  const box = $("command-result");
+  const on = st.climate_guard || st.extra_commands;
+  box.hidden = !on;
+  for (const b of document.querySelectorAll("button[data-extra]")) b.hidden = !st.extra_commands;
+  if (!on) return;
+  const r = st.values["/command/result"];
+  const m = r && r.match(/^(\d{4}-\d\d-\d\d) (\d\d:\d\d) (.*)$/);
+  let when = "", what = r || "No command yet";
+  if (m) {
+    what = m[3];
+    const d = new Date();
+    const today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    when = m[1] === today ? m[2] : m[1] + " " + m[2];
+  }
+  box.className = "result " + (!r ? "" : /refused|did not|but|still/.test(what) ? "warn" : /failed/.test(what) ? "bad" : "ok");
+  box.querySelector(".when").textContent = when ? "Last command, " + when + ":" : "Last command:";
+  box.querySelector(".what").textContent = what;
+}
+
+function render(st) {
+  state = st;
+  $("version").textContent = st.version;
+  $("version").title = st.build !== st.version ? "Build " + st.build : "";
+  const car = $("pill-car");
+  // available: what phev/available says, i.e. connected with data.
+  car.textContent = "Car: " + (!st.enabled ? "disabled" : st.available ? "connected" :
+    st.car_connected ? "connected, no data" : "not connected");
+  car.className = "pill " + (st.available ? "ok" : st.enabled && !st.car_connected ? "bad" : "warn");
+  const mq = $("pill-mqtt");
+  mq.textContent = "MQTT: " + (!st.mqtt_server ? "not set up" : st.mqtt_connected ? "connected" : "not connected");
+  mq.className = "pill " + (st.mqtt_connected ? "ok" : st.mqtt_server ? "bad" : "warn");
+
+  $("car-info").textContent = [st.model_year, st.vin].filter(Boolean).join(" · ");
+  $("tiles").replaceChildren(...tileGroups(st).flatMap(([title, items]) => {
+    const h = document.createElement("h3"); h.textContent = title;
+    const g = document.createElement("div"); g.className = "tiles";
+    g.append(...items.map(([k, v]) => {
+      const t = document.createElement("div");
+      t.className = "tile";
+      const a = document.createElement("div"); a.className = "k"; a.textContent = k;
+      const b = document.createElement("div"); b.className = "v"; b.textContent = v === undefined ? "–" : v;
+      t.append(a, b);
+      return t;
+    }));
+    return [h, g];
+  }));
+  renderCommandResult(st);
+
+  for (const b of document.querySelectorAll("button[data-car]")) b.disabled = !st.car_connected;
+  const tc = $("toggle-connection");
+  tc.textContent = st.enabled ? "Disconnect" : "Connect";
+  tc.dataset.value = st.enabled ? "off" : "on";
+}
+
+for (const b of document.querySelectorAll("button[data-cmd]")) {
+  b.addEventListener("click", async () => {
+    const value = "duration" in b.dataset ? $("duration").value : (b.dataset.value || "");
+    try {
+      await api("/api/command", { command: b.dataset.cmd, value });
+      say("cmd-msg", "Sent: " + b.textContent + ". The car's answer shows in the log.", true);
+    } catch (e) {
+      say("cmd-msg", e.message, false);
+    }
+  });
+}
+
+// Asks for a second click instead of confirm(), which may be blocked.
+let restartArmed;
+$("restart").addEventListener("click", async (ev) => {
+  const b = ev.target;
+  if (!restartArmed) {
+    b.textContent = "Click again to restart";
+    restartArmed = setTimeout(() => { restartArmed = undefined; b.textContent = "Restart phev2mqtt"; }, 5000);
+    return;
+  }
+  clearTimeout(restartArmed);
+  restartArmed = undefined;
+  b.textContent = "Restart phev2mqtt";
+  try {
+    await api("/api/command", { command: "restart" });
+    say("cmd-msg", "Restarting; the page reconnects by itself.", true);
+  } catch (e) {
+    say("cmd-msg", e.message, false);
+  }
+});
+
+$("name-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  try {
+    const r = await api("/api/device_name", { name: ev.target.name.value.trim() });
+    say("name-msg", r.published ? "Renamed in Home Assistant."
+      : "Saved; Home Assistant gets it once the car has connected.", true);
+  } catch (e) {
+    say("name-msg", e.message, false);
+  }
+});
+
+async function loadMQTT() {
+  const s = await api("/api/mqtt");
+  const f = $("mqtt-form");
+  f.server.value = s.server; f.username.value = s.username;
+  f.topic_prefix.value = s.topic_prefix; f.ha_discovery_prefix.value = s.ha_discovery_prefix;
+  f.ha_discovery.checked = s.ha_discovery;
+  f.password.value = ""; f.clear_password.checked = false;
+  f.password.placeholder = s.password_set ? "unchanged" : "";
+  const n = $("name-form");
+  n.name.value = s.device_name;
+  n.name.placeholder = "PHEV " + (state && state.vin ? state.vin : "<VIN>");
+  $("mqtt-file").textContent = s.settings_file ? "Saved in " + s.settings_file + ", on top of the config file." : "";
+}
+
+$("mqtt-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  const body = {
+    server: f.server.value.trim(), username: f.username.value,
+    topic_prefix: f.topic_prefix.value.trim(), ha_discovery: f.ha_discovery.checked,
+    ha_discovery_prefix: f.ha_discovery_prefix.value.trim(),
+  };
+  if (f.clear_password.checked) body.password = "";
+  else if (f.password.value) body.password = f.password.value;
+  try {
+    await api("/api/mqtt", body);
+    say("mqtt-msg", "Saved, reconnecting…", true);
+    await loadMQTT();
+  } catch (e) {
+    say("mqtt-msg", e.message, false);
+  }
+});
+
+function renderWifi(w) {
+  const el = $("wifi-status");
+  if (!w.available) {
+    el.textContent = "NetworkManager not available: " + (w.error || "unknown error");
+    return;
+  }
+  const parts = [w.interface + ": " + (w.state || "unknown")];
+  if (w.connection) parts.push("profile " + w.connection);
+  if (w.address) parts.push(w.address);
+  parts.push(w.car_configured ? "car profile for " + w.car_ssid : "no car profile yet");
+  el.textContent = parts.join(" · ");
+  const f = $("wifi-form");
+  if (w.car_configured && !f.ssid.value) {
+    f.ssid.value = w.car_ssid;
+    if (w.car_cloned_mac && w.car_cloned_mac.includes(":")) f.cloned_mac.value = w.car_cloned_mac;
+  }
+  f.password.placeholder = w.car_configured ? "unchanged" : "";
+}
+
+async function loadWifi() {
+  try { renderWifi(await api("/api/wifi")); } catch (e) { $("wifi-status").textContent = e.message; }
+}
+
+$("wifi-scan").addEventListener("click", async (ev) => {
+  const b = ev.target;
+  b.disabled = true; b.textContent = "Scanning…";
+  try {
+    const nets = await api("/api/wifi/scan", {});
+    const ul = $("networks");
+    ul.replaceChildren(...nets.map((n) => {
+      const li = document.createElement("li");
+      const s = document.createElement("span"); s.className = "ssid";
+      s.textContent = n.ssid + (n.active ? " (connected)" : "");
+      const q = document.createElement("span"); q.className = "muted";
+      q.textContent = n.signal + "% " + (n.security || "open");
+      li.append(s, q);
+      li.addEventListener("click", () => { $("wifi-form").ssid.value = n.ssid; $("wifi-form").password.focus(); });
+      return li;
+    }));
+    ul.hidden = nets.length === 0;
+    say("wifi-msg", nets.length ? "" : "No networks found.", true);
+  } catch (e) {
+    say("wifi-msg", e.message, false);
+  } finally {
+    b.disabled = false; b.textContent = "Scan";
+  }
+});
+
+$("wifi-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  const b = f.querySelector("button");
+  b.disabled = true;
+  say("wifi-msg", "Connecting, this can take up to a minute…", true);
+  try {
+    renderWifi(await api("/api/wifi", { ssid: f.ssid.value, password: f.password.value, cloned_mac: f.cloned_mac.value }));
+    f.password.value = "";
+    say("wifi-msg", "Connected.", true);
+  } catch (e) {
+    say("wifi-msg", e.message, false);
+  } finally {
+    b.disabled = false;
+  }
+});
+
+// The server sends its whole log again on every connection, so Clear
+// remembers up to which line it cleared. After a restart the numbering
+// starts again: the first batch then ends below what was seen before.
+let clearedSeq = 0, lastSeq = 0, freshConnection = false;
+
+function addLog(lines) {
+  const box = $("log");
+  if (freshConnection && lines.length) {
+    if (lines[lines.length - 1].seq < lastSeq) clearedSeq = 0;
+    freshConnection = false;
+    lastSeq = 0;
+  }
+  for (const l of lines) {
+    lastSeq = Math.max(lastSeq, l.seq);
+    if (l.seq <= clearedSeq) continue;
+    const div = document.createElement("div");
+    div.className = l.level;
+    const t = new Date(l.time).toLocaleTimeString([], { hour12: false });
+    div.textContent = t + " " + l.level.padEnd(7) + " " + l.message;
+    box.append(div);
+  }
+  while (box.childElementCount > 500) box.firstElementChild.remove();
+  if ($("autoscroll").checked) box.scrollTop = box.scrollHeight;
+}
+
+$("log-clear").addEventListener("click", () => {
+  clearedSeq = lastSeq;
+  $("log").replaceChildren();
+});
+
+// Remembered per browser; storage may be unavailable.
+const errorsOnly = $("errors-only");
+try { errorsOnly.checked = localStorage.getItem("phev2mqtt-errors-only") === "1"; } catch (e) {}
+const applyErrorsOnly = () => {
+  $("log").classList.toggle("errors-only", errorsOnly.checked);
+  try { localStorage.setItem("phev2mqtt-errors-only", errorsOnly.checked ? "1" : "0"); } catch (e) {}
+};
+errorsOnly.addEventListener("change", applyErrorsOnly);
+applyErrorsOnly();
+
+function connect() {
+  const es = new EventSource("/api/events");
+  const page = $("pill-page");
+  // Every connection starts with the whole log again (also after a restart).
+  es.addEventListener("open", () => { page.hidden = true; $("log").replaceChildren(); freshConnection = true; });
+  es.addEventListener("state", (ev) => render(JSON.parse(ev.data)));
+  es.addEventListener("log", (ev) => addLog(JSON.parse(ev.data)));
+  es.addEventListener("error", () => {
+    page.hidden = false; page.textContent = "Reconnecting…";
+  });
+}
+
+setInterval(() => { if (state) render(state); }, 10000); // Keeps "ago" fresh.
+setInterval(loadWifi, 30000);
+connect();
+loadMQTT().catch((e) => say("mqtt-msg", e.message, false));
+loadWifi();
+</script>
+</body>
+</html>

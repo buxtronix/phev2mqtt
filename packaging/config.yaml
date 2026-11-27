@@ -1,0 +1,69 @@
+# phev2mqtt configuration. The keys are the command line flags of
+# `phev2mqtt client mqtt` (see `phev2mqtt client mqtt --help`).
+# Only root and the phev2mqtt service can read this file.
+# After a change: sudo systemctl restart phev2mqtt
+
+# MQTT broker.
+mqtt_server: "tcp://127.0.0.1:1883"
+mqtt_username: ""
+mqtt_password: ""
+# mqtt_topic_prefix: phev
+
+# Home Assistant MQTT discovery.
+# ha_discovery: true
+# ha_discovery_prefix: homeassistant
+# Name of the car in Home Assistant (default "PHEV <VIN>").
+# ha_device_name: "Outlander"
+
+# The car's own WiFi always serves this address.
+# address: "192.168.8.46:8080"
+
+# How often to ask the car for a full status update.
+# update_interval: 5m
+
+# Extra sensors: ignition, charge type, the car's own
+# charge and climate timers, battery heater, EV-ECU error, car clock. Best
+# known for 2014-2017 cars. Switching it off again removes them from Home
+# Assistant.
+# extra_sensors: false
+
+# Recover from the car's complaints about the encryption (it rejects a
+# packet): continue with the key the car expects instead of piling up
+# errors and reconnecting, and ask for a new key when they keep coming.
+# key_resync: false
+
+# Start the climate the way the official app does: keep the car's own
+# climate timers (2014-2017 cars), refuse with a reason while the car is
+# switched on or quick charging, and confirm the climate really started.
+# Results go to phev/command/result ("Last Command Result").
+# climate_guard: false
+
+# Extra command buttons: Sync Car Clock sets the car's clock to this
+# gateway's (phev/set/sync_clock). Results go to phev/command/result.
+# extra_commands: false
+
+# Restart the WiFi interface when the car has been unreachable this long
+# (0s = never). The service may run `ip link` for this; it cannot use sudo.
+# With NetworkManager this is rarely needed: phev2mqtt itself brings the car's
+# network (profile phev2mqtt-car) up again when the car is in range but
+# NetworkManager stopped trying.
+wifi_restart_time: 0s
+wifi_restart_retry_time: 2m
+wifi_restart_command: "ip link set wlan0 down && sleep 3 && ip link set wlan0 up"
+
+# Ignore all set/... commands from MQTT (lights, climate, registers).
+# mqtt_disable_register_set_command: false
+
+# Web interface: status, buttons for the car, MQTT and WiFi settings and the
+# log. Off unless web_listen is set. Anywhere but localhost it needs
+# web_password (basic auth; any user name). MQTT settings saved there go to
+# /var/lib/phev2mqtt/settings.yaml and override the ones above.
+# web_listen: "127.0.0.1:8080"
+# web_listen: ":8080"
+# web_password: ""
+# Or no login at all. Anyone who can reach web_listen then controls the car.
+# web_auth: false
+# WiFi interface for the car. Its state and signal go to MQTT (phev/wifi/...);
+# the web interface manages it and phev2mqtt reconnects it, both of which
+# need NetworkManager.
+# wifi_interface: wlan0

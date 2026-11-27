@@ -1,0 +1,30 @@
+# golangci-lint v2. The standard linters (errcheck, govet, ineffassign,
+# staticcheck, unused) plus gofmt; CI runs this on every push and PR.
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # Best-effort calls whose error leaves nothing to do: closing a
+      # connection that is going away anyway, deadlines on a connection
+      # whose next read or write fails by itself, and flag binding, which
+      # only fails for a flag that does not exist.
+      exclude-functions:
+        - (*github.com/buxtronix/phev2mqtt/client.Client).Close
+        - (*github.com/buxtronix/phev2mqtt/emulator.Connection).Close
+        - (net.Conn).Close
+        - (net.Listener).Close
+        - (*os.File).Close
+        - (io.ReadCloser).Close
+        - syscall.Close
+        - (*net.conn).SetReadDeadline
+        - (*net.conn).SetWriteDeadline
+        - github.com/spf13/viper.BindPFlag
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,0 +1,43 @@
+[Unit]
+Description=Mitsubishi PHEV to MQTT gateway
+Documentation=https://github.com/athomasse/phev2mqtt-nxt
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+User=phev2mqtt
+Group=phev2mqtt
+ExecStart=/usr/bin/phev2mqtt --config /etc/phev2mqtt/config.yaml client mqtt
+# The car accepts one client at a time; give it room before reconnecting.
+Restart=always
+RestartSec=30s
+SyslogIdentifier=phev2mqtt
+# Settings saved by the web interface: /var/lib/phev2mqtt/settings.yaml.
+StateDirectory=phev2mqtt
+StateDirectoryMode=0700
+
+# wifi_restart_command (ip link set ... down/up) needs CAP_NET_ADMIN and
+# nothing else, so no sudo. NoNewPrivileges means sudo would not work anyway.
+AmbientCapabilities=CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

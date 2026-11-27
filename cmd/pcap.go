@@ -1,3 +1,5 @@
+//go:build pcap
+
 /*
 Copyright © 2021 Ben Buxton <bbuxton@gmail.com>
 
@@ -15,13 +17,10 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-//go:build pcap
-
 package cmd
 
 import (
 	"encoding/hex"
-	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -52,7 +51,7 @@ via Android (https://wladimir-tm4pda.github.io/porting/tcpdump.html)
 		var handle *pcap.Handle
 		var err error
 		if parts := strings.Split(args[0], ":"); len(parts) == 3 && parts[0] == "tcp" {
-			conn, err := net.Dial("tcp", fmt.Sprintf("%s:%s", parts[1], parts[2]))
+			conn, err := net.Dial("tcp", net.JoinHostPort(parts[1], parts[2]))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -81,11 +80,11 @@ via Android (https://wladimir-tm4pda.github.io/porting/tcpdump.html)
 			if m := packet.Metadata(); m != nil {
 				if pNum > 0 {
 					if r, _ := cmd.Flags().GetBool("latency"); r {
-						time.Sleep(m.CaptureInfo.Timestamp.Sub(currentTime))
+						time.Sleep(m.Timestamp.Sub(currentTime))
 					}
-					currentTime = m.CaptureInfo.Timestamp
+					currentTime = m.Timestamp
 				} else {
-					currentTime = m.CaptureInfo.Timestamp
+					currentTime = m.Timestamp
 				}
 			}
 			pNum += 1
@@ -129,7 +128,7 @@ func decodePacket(cmd *cobra.Command, packet gopacket.Packet) {
 	}
 
 	if err := packet.ErrorLayer(); err != nil {
-		log.Errorf("error decoding packet:", err)
+		log.Errorf("error decoding packet: %v", err.Error())
 	}
 }
 

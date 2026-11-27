@@ -1,0 +1,103 @@
+name: build
+
+# Cross-compiles phev2mqtt for linux amd64, arm64, armv6 (every 32-bit Pi)
+# and 386, and packages each as a .deb (packaging/). Pure Go without cgo, so
+# no ARM runner or toolchain is needed; the optional `pcap` build tag
+# (libpcap) is only vetted and built for amd64. A `v*` tag also publishes a
+# GitHub release, with build provenance for every file.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The tags, for the release number build.sh puts in the binary.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      # The release builds leave out `pcap` (cgo, libpcap); build it anyway
+      # so `decode pcap` cannot rot unnoticed.
+      - name: Build with the pcap tag
+        run: |
+          sudo apt-get update && sudo apt-get install -y libpcap-dev
+          go vet -tags pcap ./...
+          go build -tags pcap -o /dev/null .
+
+      - name: Install nfpm
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0
+
+      # Tag v1.2.3 -> 1.2.3; other builds get a version that sorts below any
+      # release, so a test package never blocks upgrading to the next one, and
+      # by commit time to the second (the hash alone does not sort).
+      - name: Build binaries and packages
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version=${GITHUB_REF_NAME#v}
+          else
+            version=0.0.0~git$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%d%H%M%S).$(git rev-parse --short HEAD)
+          fi
+          PATH=$PATH:$(go env GOPATH)/bin packaging/build.sh "$version"
+
+      # The runner has systemd, so this also exercises the maintainer scripts.
+      - name: Smoke test the amd64 package
+        run: |
+          sudo apt-get install -y ./dist/phev2mqtt_*_amd64.deb
+          phev2mqtt --version
+          id phev2mqtt
+          test "$(stat -c '%U:%G %a' /etc/phev2mqtt/config.yaml)" = 'root:phev2mqtt 640'
+          systemd-analyze verify /usr/lib/systemd/system/phev2mqtt.service
+          sudo apt-get purge -y phev2mqtt
+          test ! -e /usr/bin/phev2mqtt
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phev2mqtt
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Build provenance: `gh attestation verify <file> --repo <repo>`.
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: phev2mqtt
+          path: dist
+
+      # Every binary and .deb, as listed in SHA256SUMS.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: dist/SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

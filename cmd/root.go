@@ -17,12 +17,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"os"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"github.com/wercker/journalhook"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/wercker/journalhook"
+	"os"
 )
 
 var (
@@ -32,10 +32,27 @@ var (
 	logSyslog bool
 )
 
+// Version is set at build time with
+// -ldflags "-X github.com/buxtronix/phev2mqtt/cmd.Version=...".
+var Version = "dev"
+
+// Release is the GitHub release (its tag without the v) this build is, or
+// builds on; set like Version. The web interface shows it.
+var Release = ""
+
+// releaseVersion is Release, or Version when the build did not set it.
+func releaseVersion() string {
+	if Release != "" {
+		return Release
+	}
+	return Version
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "phev2mqtt",
-	Short: "A utility for communicating with a Mitsubishi PHEV",
+	Use:     "phev2mqtt",
+	Version: Version,
+	Short:   "A utility for communicating with a Mitsubishi PHEV",
 	Long: `See below for subcommands. For further information
 	on this tool, see https://github.com/buxtronix/phev2mqtt.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -53,8 +70,8 @@ var rootCmd = &cobra.Command{
 			})
 		} else {
 			log.SetFormatter(&log.TextFormatter{
-				FullTimestamp: false,
-				DisableColors: true,
+				FullTimestamp:    false,
+				DisableColors:    true,
 				DisableTimestamp: true,
 			})
 		}
@@ -106,8 +123,13 @@ func initConfig() {
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
+	// If a config file is found, read it in. One given with --config must
+	// be readable: silently falling back to the defaults (e.g. a local MQTT
+	// broker) hides a typo or a permission problem. --config=/dev/null is
+	// the documented way to read no config file at all.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	} else if cfgFile != "" && cfgFile != os.DevNull {
+		cobra.CheckErr(fmt.Errorf("reading config file: %w", err))
 	}
 }

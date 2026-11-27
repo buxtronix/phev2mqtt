@@ -13,54 +13,42 @@ func (s *Connection) manage() {
 		l.Stop()
 		s.RemoveListener(l)
 	}()
-	for {
-		select {
-		case msg := <-l.C:
-			switch msg.Type {
-			case protocol.CmdOutPingReq:
-				// Ping request from client.
-				pingCount++
-				s.Send <- protocol.NewPingResponseMessage(msg.Register)
-				if s.key.State == protocol.SecurityEmpty && pingCount == 10 {
-					// Establish initial key after 10th ping.
-					s.state = conSecInit
-					s.rekey()
-				}
-			case protocol.CmdOutMy18StartResp:
-				if msg.Original[2] == 0x0 {
-					s.rekey()
-					break
-				}
-				if s.key.State == protocol.SecurityKeyProposed {
-					s.key.AcceptProposal()
+	for msg := range l.C {
+		switch msg.Type {
+		case protocol.CmdOutPingReq:
+			// Ping request from client.
+			pingCount++
+			s.Send <- protocol.NewPingResponseMessage(msg.Register)
+			if s.key.State == protocol.SecurityEmpty && pingCount == 10 {
+				// Establish initial key after 10th ping.
+				s.state = conSecInit
+				s.rekey()
+			}
+		case protocol.CmdOutMy18StartResp:
+			if msg.Original[2] == 0x0 {
+				s.rekey()
+				break
+			}
+			if s.key.State == protocol.SecurityKeyProposed {
+				s.key.AcceptProposal()
+				s.sendNextRegister()
+			}
+			/*
+				if s.state == conSecInit {
+					s.state = conRegisterStart
+					s.registerIndex = 0
 					s.sendNextRegister()
 				}
-				/*
-					if s.state == conSecInit {
-						s.state = conRegisterStart
-						s.registerIndex = 0
-						s.sendNextRegister()
-					}
-				*/
-			case protocol.CmdOutSend:
-				if msg.Ack == protocol.Ack {
-					s.sendNextRegister()
-				}
-				if msg.Ack == protocol.Request {
-					s.handleSetRegister(msg)
-				}
+			*/
+		case protocol.CmdOutSend:
+			if msg.Ack == protocol.Ack {
+				s.sendNextRegister()
+			}
+			if msg.Ack == protocol.Request {
+				s.handleSetRegister(msg)
 			}
 		}
 	}
-}
-
-func (s *Connection) getRegister(r byte) protocol.Register {
-	for _, reg := range s.car.Registers {
-		if reg.Register() == r {
-			return reg
-		}
-	}
-	return nil
 }
 
 func (s *Connection) handleSetRegister(msg *protocol.PhevMessage) {

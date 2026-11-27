@@ -1,0 +1,5 @@
+# Formatting-only commits, skipped by `git blame` (GitHub does this by
+# itself; locally: git config blame.ignoreRevsFile .git-blame-ignore-revs).
+
+# gofmt cmd/mqtt.go, cmd/pcap.go, cmd/root.go
+3baa3cafea702ea9d098c9e47d1ac2b5948e705a

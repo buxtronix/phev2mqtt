@@ -1,0 +1,15 @@
+// Lets the phev2mqtt service manage the car's WiFi connection from its web
+// interface (scan, create the connection profile, bring it up). Nothing else:
+// no other NetworkManager actions and no other users.
+polkit.addRule(function (action, subject) {
+    if (subject.user !== "phev2mqtt") {
+        return polkit.Result.NOT_HANDLED;
+    }
+    switch (action.id) {
+    case "org.freedesktop.NetworkManager.wifi.scan":
+    case "org.freedesktop.NetworkManager.network-control":
+    case "org.freedesktop.NetworkManager.settings.modify.system":
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});

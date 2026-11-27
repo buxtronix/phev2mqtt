@@ -6,12 +6,9 @@ import (
 	"github.com/buxtronix/phev2mqtt/protocol"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
-	"math/rand"
 	"net"
 	"time"
 )
-
-const listenAddress = ":8080"
 
 // A Car represents a virtual emulated car.
 type Car struct {
@@ -29,14 +26,13 @@ func (c *Car) Begin() error {
 	if err != nil {
 		return err
 	}
-	rand.Seed(time.Now().Unix())
 
 	go func() {
 		defer l.Close()
 		for {
 			conn, err := l.Accept()
 			if err != nil {
-				log.Errorf("Accept() error: %v")
+				log.Errorf("Accept() error: %v", err)
 				return
 			}
 			svc := NewConnection(conn, c)

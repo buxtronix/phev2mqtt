@@ -1,0 +1,12 @@
+# Fixed name and MAC address for the WiFi interface that talks to the car.
+# Only needed without NetworkManager (with it, set cloned-mac-address in
+# WiFi-PHEV.nmconnection instead). Install as /etc/systemd/network/10-phev-wifi.link
+# and reboot.
+[Match]
+# The real (factory) MAC address of the WiFi interface.
+MACAddress=<aa:bb:cc:dd:ee:ff>
+
+[Link]
+# The MAC address to use towards the car, e.g. that of your registered phone.
+MACAddress=<11:22:33:44:55:66>
+Name=wlan0

@@ -1,0 +1,43 @@
+# NetworkManager profile for the car's WiFi. Fill in the <...> values, then:
+#   sudo install -m 600 WiFi-PHEV.nmconnection /etc/NetworkManager/system-connections/
+#   sudo nmcli connection reload && sudo nmcli connection up WiFi-PHEV
+[connection]
+id=WiFi-PHEV
+type=wifi
+# Replace with your wlan interface name
+interface-name=wlan0
+auth-retries=10
+autoconnect-priority=10
+autoconnect-retries=0
+wait-device-timeout=30000
+# Disable unnecessary protocols
+lldp=0
+llmnr=0
+mdns=0
+
+[wifi]
+band=bg
+mode=infrastructure
+ssid=<REMOTExxxxxx, the SSID of your car>
+# Optional, for a faster connection
+#bssid=<BSSID/MAC of the car's WiFi>
+#channel=<3 (default) or 8>
+# Optional: use the MAC address of the phone you registered with
+#cloned-mac-address=<your phone's MAC address>
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=<WiFi password of the car>
+
+[ipv4]
+# Static address instead of the car's DHCP, and only route the car's subnet
+# over this link (never the default route).
+method=manual
+address1=192.168.8.47/24
+never-default=true
+ignore-auto-dns=true
+route-metric=40
+route1=192.168.8.0/24,192.168.8.46
+
+[ipv6]
+method=disabled

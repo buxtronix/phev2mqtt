@@ -1,0 +1,53 @@
+# nfpm config for the .deb packages; run packaging/build.sh rather than nfpm
+# directly. DEB_ARCH and VERSION come from the environment, the binary for
+# that architecture is copied to dist/phev2mqtt first.
+name: phev2mqtt
+arch: ${DEB_ARCH}
+platform: linux
+version: ${VERSION}
+version_schema: none
+section: net
+priority: optional
+maintainer: Andre Thomasse <athomasse@outlook.com>
+description: |-
+  Mitsubishi Outlander PHEV to MQTT gateway
+  Connects to the car over its WiFi and publishes its state to MQTT, with
+  Home Assistant discovery. Commands on MQTT topics control lights, climate
+  and charging.
+homepage: https://github.com/athomasse/phev2mqtt-nxt
+license: GPL-3.0-or-later
+# For systemd-sysusers in postinstall.
+depends:
+  - systemd | systemd-standalone-sysusers
+recommends:
+  - iproute2
+# For the WiFi settings in the web interface.
+suggests:
+  - network-manager
+  - polkitd
+
+contents:
+  - src: dist/phev2mqtt
+    dst: /usr/bin/phev2mqtt
+  - src: packaging/phev2mqtt.service
+    dst: /usr/lib/systemd/system/phev2mqtt.service
+  - src: packaging/sysusers.conf
+    dst: /usr/lib/sysusers.d/phev2mqtt.conf
+  - src: packaging/polkit.rules
+    dst: /usr/share/polkit-1/rules.d/50-phev2mqtt.rules
+  # A conffile: an upgrade never overwrites local changes. The group is set
+  # in postinstall, because the user does not exist yet while unpacking.
+  - src: packaging/config.yaml
+    dst: /etc/phev2mqtt/config.yaml
+    type: config
+    file_info:
+      mode: 0640
+  - src: packaging/examples/*
+    dst: /usr/share/doc/phev2mqtt/examples/
+  - src: LICENSE
+    dst: /usr/share/doc/phev2mqtt/copyright
+
+scripts:
+  postinstall: packaging/postinstall.sh
+  preremove: packaging/preremove.sh
+  postremove: packaging/postremove.sh

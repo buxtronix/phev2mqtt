@@ -1,0 +1,37 @@
+name: govulncheck
+
+# Reports known vulnerabilities (Go vulnerability database) in the standard
+# library and in dependencies, limited to code this binary actually calls.
+# Also daily: new advisories appear for code that has not changed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+
+      # Same target as the release binary (Raspberry Pi B+).
+      - name: govulncheck linux/armv6
+        env:
+          GOOS: linux
+          GOARCH: arm
+          GOARM: '6'
+        run: '"$(go env GOPATH)/bin/govulncheck" ./...'
