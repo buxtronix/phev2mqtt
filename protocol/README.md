@@ -361,7 +361,9 @@ __must be converted from big endian to little endian__ to be useful
 ### 0x12 - Car time sync
 
 `[yy mm dd hh mi ss][?]`, the car's clock in local time. Register 0x14 (last
-alarm event) uses the same time format.
+alarm event) uses the same time format. The car sends it now and then, and
+with every full update (0x06 = 03); it is set by writing 0x05.
+On the MY14 test car it arrived within a second of the car's own clock.
 
 ### 0x18 - Charge timer programme / 0x19 - Climate timer programme
 
@@ -519,8 +521,11 @@ A string with the software version of the ECU.
 |       3 | Hour          |
 |       4 | Minute        |
 |       5 | Second        |
-|       6 | Day of week   |
-|       7 | Device rooted |
+|       6 | Day of week, Sunday = 0 |
+|       7 | Device rooted (0) |
+
+The car's clock then reads the new time in 0x12; `extra_commands` (Sync Car
+Clock) asks for a full update to check it.
 
 ### 0x10 - Register wifi client
 

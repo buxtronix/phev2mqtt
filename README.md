@@ -32,7 +32,7 @@ On a Raspberry Pi (any model) or another machine with Debian, Ubuntu or Raspberr
 and a WiFi adapter within reach of the car:
 
 ```
-version=0.6.2
+version=0.7.0
 deb=phev2mqtt_${version}_$(dpkg --print-architecture).deb
 base=https://github.com/athomasse/phev2mqtt-nxt/releases/download/v$version
 curl -fLO "$base/SHA256SUMS" -fLO "$base/$deb"
