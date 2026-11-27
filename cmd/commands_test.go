@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -105,6 +106,41 @@ func TestSyncClockFromMQTT(t *testing.T) {
 		}
 		if r := b.get("phev/command/result"); (r != "") != on {
 			t.Errorf("extra_commands %v: result %q", on, r)
+		}
+	}
+}
+
+// The WiFi restart works over MQTT without the car, like the web button.
+func TestWifiRestartFromMQTT(t *testing.T) {
+	marker := t.TempDir() + "/ran"
+	setConfig(t, "wifi_restart_command", "touch "+marker)
+	m, _ := newTestClient("phev")
+	m.handleIncomingMqtt(nil, fakeMessage{"phev/wifi/restart", ""})
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := os.Stat(marker); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("wifi_restart_command did not run")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// Every button the web interface has is also in Home Assistant discovery.
+func TestWebCommandsInDiscovery(t *testing.T) {
+	m, b := newTestClient("phev")
+	m.extraSensors, m.climateGuard, m.extraCommands = true, true, true
+	m.publishHomeAssistantDiscovery("VIN123", "phev")
+	var all strings.Builder
+	for _, p := range b.published {
+		all.WriteString(p)
+	}
+	for _, topic := range []string{"~/set/refresh", "~/wifi/restart", "~/set/climate/state", "~/set/sync_clock",
+		"~/set/headlights", "~/set/parkinglights", "~/set/cancelchargetimer", "~/connection", "~/restart"} {
+		if !strings.Contains(all.String(), `"command_topic": "`+topic+`"`) {
+			t.Errorf("no Home Assistant entity for %s", topic)
 		}
 	}
 }

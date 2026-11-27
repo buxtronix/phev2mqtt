@@ -16,11 +16,13 @@ over the car's own WiFi. A fork of [buxtronix/phev2mqtt](https://github.com/buxt
  * Pre-heats or cools the car, switches the lights and cancels the charge timer;
    optionally like the official app, keeping the car's own climate timers and reporting
    whether the climate really started (`climate_guard`)
+ * Shows how far the car's clock is off, and sets it with a button (`extra_commands`)
  * Optionally recovers from the car rejecting the encryption without reconnecting
    (`key_resync`)
  * Tells you whether the car is connected, how strong its WiFi is, and when it last
    connected
- * Has a web interface for the status, the controls, the setup and the log
+ * Has a web interface for the status, the controls, the setup and the log; every button
+   in it is also a Home Assistant button and an MQTT topic
 
 Tested on an Outlander PHEV MY14 and MY18 and an Eclipse Cross (2022).
 
@@ -143,9 +145,12 @@ Commands:
 | phev/set/climate/mode | *off* |
 | phev/set/headlights, parkinglights | *on* or *off* |
 | phev/set/cancelchargetimer | Anything |
+| phev/set/climate/state | *reset*: clears the *terminated* climate state |
+| phev/set/refresh | Anything: asks the car for all its values now |
 | phev/set/sync_clock | With `extra_commands`: anything, sets the car's clock to the gateway's |
 | phev/connection | *on*, *off* or *restart* (reconnect to the car) |
 | phev/restart | Anything: restarts phev2mqtt |
+| phev/wifi/restart | Anything: runs `wifi_restart_command`, also without the car |
 | phev/set/register/[register] | A raw register value, in hex |
 
 </details>

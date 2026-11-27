@@ -253,11 +253,7 @@ func (ws *webServer) command(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, errors.New("not connected to the car"))
 			return
 		}
-		go func() {
-			if err := phev.SetRegister(0x6, []byte{0x3}); err != nil {
-				log.Infof("Error requesting update: %v", err)
-			}
-		}()
+		go requestUpdate(phev)
 	case "restart":
 		log.Info("Web interface: restart")
 		go func() {
